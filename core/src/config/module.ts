@@ -7,11 +7,21 @@
  */
 
 import { ServiceConfig, serviceConfigSchema } from "./service"
-import { joiArray, joiIdentifier, joiRepositoryUrl, joiUserIdentifier, joi, includeGuideLink } from "./common"
+import {
+  joiArray,
+  joiIdentifier,
+  joiRepositoryUrl,
+  joiUserIdentifier,
+  joi,
+  includeGuideLink,
+  apiVersionSchema,
+  DeepPrimitiveMap,
+  joiVariables,
+} from "./common"
 import { TestConfig, testConfigSchema } from "./test"
 import { TaskConfig, taskConfigSchema } from "./task"
-import { DEFAULT_API_VERSION } from "../constants"
 import { dedent, stableStringify } from "../util/string"
+import { templateKind, bundleKind } from "./bundle"
 
 export interface BuildCopySpec {
   source: string
@@ -43,10 +53,8 @@ export interface BuildDependencyConfig {
 
 export const buildDependencySchema = () =>
   joi.object().keys({
-    name: joiIdentifier().required().description("Module name to build ahead of this module."),
-    plugin: joiIdentifier()
-      .meta({ internal: true })
-      .description("The name of plugin that provides the build dependency."),
+    name: joi.string().required().description("Module name to build ahead of this module."),
+    plugin: joi.string().meta({ internal: true }).description("The name of plugin that provides the build dependency."),
     copy: joiArray(copySchema()).description(
       "Specify one or more files or directories to copy from the built dependency to this module."
     ),
@@ -54,6 +62,12 @@ export const buildDependencySchema = () =>
 
 export interface BaseBuildSpec {
   dependencies: BuildDependencyConfig[]
+}
+
+export interface ModuleFileSpec {
+  sourcePath?: string
+  targetPath: string
+  value?: string
 }
 
 export interface ModuleSpec {}
@@ -65,6 +79,7 @@ interface ModuleSpecCommon {
   description?: string
   disabled?: boolean
   exclude?: string[]
+  generateFiles?: ModuleFileSpec[]
   include?: string[]
   name: string
   path?: string
@@ -84,6 +99,35 @@ export interface BaseModuleSpec extends ModuleSpecCommon {
   disabled: boolean
 }
 
+const generatedFileSchema = () =>
+  joi
+    .object()
+    .keys({
+      sourcePath: joi
+        .posixPath()
+        .relativeOnly()
+        .description(
+          dedent`
+          POSIX-style filename to read the source file contents from, relative to the path of the ${templateKind} configuration file.
+          This file may contain template strings, much like any other field in the configuration.
+          `
+        ),
+      targetPath: joi
+        .posixPath()
+        .relativeOnly()
+        .subPathOnly()
+        .required()
+        .description(
+          dedent`
+          POSIX-style filename to write the resolved file contents to, relative to the path of the ${bundleKind} that references the template.
+
+          Note that any existing file with the same name will be overwritten. If the path contains one or more directories, they will be automatically created if missing.
+          `
+        ),
+      value: joi.string().description("The desired file contents as a string."),
+    })
+    .xor("value", "sourcePath")
+
 export const baseBuildSpecSchema = () =>
   joi
     .object()
@@ -100,16 +144,12 @@ export const coreModuleSpecSchema = () =>
   joi
     .object()
     .keys({
-      apiVersion: joi
-        .string()
-        .default(DEFAULT_API_VERSION)
-        .valid(DEFAULT_API_VERSION)
-        .description("The schema version of this module's config (currently not used)."),
+      apiVersion: apiVersionSchema(),
       kind: joi.string().default("Module").valid("Module"),
       type: joiIdentifier().required().description("The type of this module.").example("container"),
       name: joiUserIdentifier().required().description("The name of this module.").example("my-sweet-module"),
+      build: baseBuildSpecSchema().unknown(true),
     })
-    .required()
     .unknown(true)
     .description("Configure a module whose sources are located in this directory.")
     .meta({ extendable: true })
@@ -165,7 +205,9 @@ export const baseModuleSpecSchema = () =>
       .boolean()
       .default(true)
       .description("When false, disables pushing this module to remote registries."),
-    build: baseBuildSpecSchema().unknown(true),
+    generateFiles: joi.array().items(generatedFileSchema()).description(dedent`
+      A list of files to write to the module directory when resolving this module. This is useful to automatically generate (and template) any supporting files needed for the module.
+    `),
   })
 
 export interface ModuleConfig<M extends {} = any, S extends {} = any, T extends {} = any, W extends {} = any>
@@ -176,6 +218,11 @@ export interface ModuleConfig<M extends {} = any, S extends {} = any, T extends 
   serviceConfigs: ServiceConfig<S>[]
   testConfigs: TestConfig<T>[]
   taskConfigs: TaskConfig<W>[]
+
+  // set by BundleTemplates for templating
+  bundleName?: string
+  bundleTemplateName?: string
+  inputs?: DeepPrimitiveMap
 
   // Plugins can add custom fields that are kept here
   spec: M
@@ -195,6 +242,21 @@ export const moduleConfigSchema = () =>
       taskConfigs: joiArray(taskConfigSchema()).description("List of tasks configured by this module."),
       testConfigs: joiArray(testConfigSchema()).description("List of tests configured by this module."),
       spec: joi.object().meta({ extendable: true }).description("The module spec, as defined by the provider plugin."),
+      generateFiles: joi
+        .array()
+        .items(
+          generatedFileSchema().keys({
+            // Allowing any file path for resolved configs
+            sourcePath: joi.string(),
+          })
+        )
+        .description("Files to write upon resolution, defined by a BundleTemplate.")
+        .meta({ internal: true }),
+      bundleName: joiIdentifier().description("The bundle that generated the module, if applicable."),
+      bundleTemplateName: joiIdentifier().description("The bundle template that generated the module, if applicable."),
+      inputs: joiVariables().description(
+        "Inputs provided when rendering the module from a bundle template, if applicable."
+      ),
       _config: joi.object().meta({ internal: true }),
     })
     .description("The configuration for a module.")

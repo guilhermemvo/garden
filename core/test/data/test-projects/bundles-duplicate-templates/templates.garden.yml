@@ -1,0 +1,10 @@
+kind: BundleTemplate
+name: combo
+modules:
+  - type: test
+    name: ${component-name}-${inputs.key}-test-a
+  - type: test
+    name: ${component-name}-${inputs.key}-test-b
+---
+kind: BundleTemplate
+name: combo

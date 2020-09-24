@@ -1,0 +1,15 @@
+kind: Project
+name: bundle-k8s-container
+environments:
+  - name: local
+  - name: testing
+providers:
+  - name: local-kubernetes
+    environments: [local]
+  - name: kubernetes
+    environments: [testing]
+    # Replace these values as appropriate
+    context: gke_garden-dev-200012_europe-west1-b_garden-dev-1
+    namespace: bundle-testing-${local.username}
+    defaultHostname: ${local.username}-bundle.dev-1.sys.garden
+    buildMode: cluster-docker

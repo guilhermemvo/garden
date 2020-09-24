@@ -14,15 +14,18 @@ import { LogEntry } from "../logger/log-entry"
 import { ModuleConfig } from "../config/module"
 import { GraphResults } from "../task-graph"
 import { keyBy } from "lodash"
-import { ConfigurationError, PluginError } from "../exceptions"
+import { ConfigurationError, PluginError, FilesystemError } from "../exceptions"
 import { RuntimeContext } from "../runtime-context"
 import { ModuleConfigContext } from "../config/config-context"
 import { ProviderMap } from "../config/provider"
 import { resolveModuleConfig } from "../resolve-module"
-import { getModuleTemplateReferences } from "../template-string"
+import { getModuleTemplateReferences, resolveTemplateString } from "../template-string"
 import { Profile } from "../util/profiling"
 import { validateWithPath } from "../config/validation"
 import { getModuleTypeBases } from "../plugins"
+import Bluebird from "bluebird"
+import { posix, resolve } from "path"
+import { mkdirp, writeFile, readFile } from "fs-extra"
 
 interface ResolveModuleConfigTaskParams {
   garden: Garden
@@ -54,7 +57,18 @@ export class ResolveModuleConfigTask extends BaseTask {
   async resolveDependencies() {
     const rawConfigs = keyBy(await this.garden.getRawModuleConfigs(), "name")
 
-    const templateRefs = getModuleTemplateReferences(this.moduleConfig)
+    const configContext = new ModuleConfigContext({
+      garden: this.garden,
+      resolvedProviders: this.resolvedProviders,
+      moduleName: this.moduleConfig.name,
+      dependencies: [],
+      runtimeContext: this.runtimeContext,
+      bundleName: this.moduleConfig.bundleName,
+      bundleTemplateName: this.moduleConfig.bundleTemplateName,
+      inputs: this.moduleConfig.inputs,
+    })
+
+    const templateRefs = getModuleTemplateReferences(this.moduleConfig, configContext)
     const deps = templateRefs.filter((d) => d[1] !== this.moduleConfig.name)
 
     return deps.map((d) => {
@@ -99,6 +113,9 @@ export class ResolveModuleConfigTask extends BaseTask {
       moduleName: this.moduleConfig.name,
       dependencies,
       runtimeContext: this.runtimeContext,
+      bundleName: this.moduleConfig.bundleName,
+      bundleTemplateName: this.moduleConfig.bundleTemplateName,
+      inputs: this.moduleConfig.inputs,
     })
 
     return resolveModuleConfig(this.garden, this.moduleConfig, {
@@ -206,7 +223,7 @@ export class ResolveModuleTask extends BaseTask {
         schema: description.moduleOutputsSchema,
         configType: `outputs for module`,
         name: module.name,
-        path: module.path,
+        path: module.configPath || module.path,
         projectRoot: this.garden.projectRoot,
         ErrorClass: PluginError,
       })
@@ -222,13 +239,51 @@ export class ResolveModuleTask extends BaseTask {
         module.outputs = validateWithPath({
           config: module.outputs,
           schema: base.moduleOutputsSchema.unknown(true),
-          path: module.path,
+          path: module.configPath || module.path,
           projectRoot: this.garden.projectRoot,
           configType: `outputs for module '${module.name}' (base schema from '${base.name}' plugin)`,
           ErrorClass: PluginError,
         })
       }
     }
+
+    // Write module files
+    const configContext = new ModuleConfigContext({
+      garden: this.garden,
+      resolvedProviders: this.resolvedProviders,
+      moduleName: this.moduleConfig.name,
+      dependencies: dependencyModules,
+      runtimeContext: this.runtimeContext,
+      bundleName: this.moduleConfig.bundleName,
+      bundleTemplateName: this.moduleConfig.bundleTemplateName,
+      inputs: this.moduleConfig.inputs,
+    })
+
+    await Bluebird.map(module.generateFiles || [], async (fileSpec) => {
+      let contents = fileSpec.value || ""
+
+      if (fileSpec.sourcePath) {
+        contents = (await readFile(fileSpec.sourcePath)).toString()
+        contents = await resolveTemplateString(contents, configContext)
+      }
+
+      const resolvedContents = resolveTemplateString(contents, configContext)
+      const targetDir = resolve(module.path, ...posix.dirname(fileSpec.targetPath).split(posix.sep))
+      const targetPath = resolve(module.path, ...fileSpec.targetPath.split(posix.sep))
+
+      try {
+        await mkdirp(targetDir)
+        await writeFile(targetPath, resolvedContents)
+      } catch (error) {
+        throw new FilesystemError(
+          `Unable to write templated file ${fileSpec.targetPath} from ${module.name}: ${error.message}`,
+          {
+            fileSpec,
+            error,
+          }
+        )
+      }
+    })
 
     return module
   }

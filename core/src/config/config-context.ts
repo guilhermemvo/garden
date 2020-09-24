@@ -9,7 +9,15 @@
 import Joi from "@hapi/joi"
 import chalk from "chalk"
 import { isString, mapValues } from "lodash"
-import { PrimitiveMap, joiIdentifierMap, joiStringMap, joiPrimitive, DeepPrimitiveMap, joiVariables } from "./common"
+import {
+  PrimitiveMap,
+  joiIdentifierMap,
+  joiStringMap,
+  joiPrimitive,
+  DeepPrimitiveMap,
+  joiVariables,
+  joiIdentifier,
+} from "./common"
 import { Provider, GenericProviderConfig, ProviderMap } from "./provider"
 import { ConfigurationError } from "../exceptions"
 import { resolveTemplateString, TemplateStringMissingKeyError } from "../template-string"
@@ -21,6 +29,7 @@ import { deline, dedent, naturalList } from "../util/string"
 import { getProviderUrl, getModuleTypeUrl } from "../docs/common"
 import { GardenModule } from "../types/module"
 import { isPrimitive } from "util"
+import { bundleKind, templateKind } from "./bundle"
 
 export type ContextKeySegment = string | number
 export type ContextKey = ContextKeySegment[]
@@ -302,6 +311,13 @@ export class DefaultEnvironmentContext extends ConfigContext {
   }
 }
 
+export interface ProjectConfigContextParams {
+  projectName: string
+  artifactsPath: string
+  username?: string
+  secrets: PrimitiveMap
+}
+
 /**
  * This context is available for template strings for all Project config fields (except `name`, `id` and
  * `domain`).
@@ -330,17 +346,7 @@ export class ProjectConfigContext extends DefaultEnvironmentContext {
   )
   public secrets: PrimitiveMap
 
-  constructor({
-    projectName,
-    artifactsPath,
-    username,
-    secrets,
-  }: {
-    projectName: string
-    artifactsPath: string
-    username?: string
-    secrets: PrimitiveMap
-  }) {
+  constructor({ projectName, artifactsPath, username, secrets }: ProjectConfigContextParams) {
     super({ projectName, artifactsPath, username })
     this.secrets = secrets
   }
@@ -743,6 +749,43 @@ class ErrorContext extends ConfigContext {
   }
 }
 
+export class BundleContext extends ConfigContext {
+  @schema(joiIdentifier().description(`The name of the ${bundleKind} being resolved.`))
+  public name: string
+
+  @schema(joiIdentifier().description(`The name of the ${templateKind} of the ${bundleKind} being resolved.`))
+  public templateName: string
+
+  constructor(root: ConfigContext, name: string, templateName: string) {
+    super(root)
+    this.name = name
+    this.templateName = templateName
+  }
+}
+
+/**
+ * This is used to render module names when rendering bundles.
+ */
+export class BundleConfigContext extends ProjectConfigContext {
+  @schema(BundleContext.getSchema().description(`Information about the ${bundleKind} being resolved.`))
+  public bundle: BundleContext
+
+  @schema(
+    joiVariables().description(`The inputs provided by the ${bundleKind}.`).meta({
+      keyPlaceholder: "<input-key>",
+    })
+  )
+  public inputs: DeepPrimitiveMap
+
+  constructor(
+    params: { bundleName: string; templateName: string; inputs: DeepPrimitiveMap } & ProjectConfigContextParams
+  ) {
+    super(params)
+    this.bundle = new BundleContext(this, params.bundleName, params.templateName)
+    this.inputs = params.inputs
+  }
+}
+
 /**
  * This context is available for template strings under the `module` key in configuration files.
  * It is a superset of the context available under the `project` key.
@@ -763,12 +806,27 @@ export class ModuleConfigContext extends ProviderConfigContext {
   )
   public runtime: RuntimeConfigContext
 
+  @schema(
+    BundleContext.getSchema().description(`Information about the bundle that generated the module, if applicable.`)
+  )
+  public bundle?: BundleContext
+
+  @schema(
+    joiVariables().description(`The inputs provided to the module through a ${templateKind}, if applicable.`).meta({
+      keyPlaceholder: "<input-key>",
+    })
+  )
+  public inputs: DeepPrimitiveMap
+
   constructor({
     garden,
     resolvedProviders,
     moduleName,
     dependencies,
     runtimeContext,
+    bundleName,
+    bundleTemplateName,
+    inputs,
   }: {
     garden: Garden
     resolvedProviders: ProviderMap
@@ -777,6 +835,9 @@ export class ModuleConfigContext extends ProviderConfigContext {
     // We only supply this when resolving configuration in dependency order.
     // Otherwise we pass `${runtime.*} template strings through for later resolution.
     runtimeContext?: RuntimeContext
+    bundleName: string | undefined
+    bundleTemplateName: string | undefined
+    inputs: DeepPrimitiveMap | undefined
   }) {
     super(garden, resolvedProviders)
 
@@ -790,6 +851,10 @@ export class ModuleConfigContext extends ProviderConfigContext {
     }
 
     this.runtime = new RuntimeConfigContext(this, runtimeContext)
+    if (bundleName && bundleTemplateName) {
+      this.bundle = new BundleContext(this, bundleName, bundleTemplateName)
+    }
+    this.inputs = inputs || {}
   }
 }
 
@@ -813,6 +878,9 @@ export class OutputConfigContext extends ModuleConfigContext {
       resolvedProviders,
       dependencies: modules,
       runtimeContext,
+      bundleName: undefined,
+      bundleTemplateName: undefined,
+      inputs: {},
     })
   }
 }

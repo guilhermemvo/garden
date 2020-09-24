@@ -126,6 +126,7 @@ describe("loadConfigResources", () => {
         configPath,
         description: undefined,
         disabled: undefined,
+        generateFiles: undefined,
         include: undefined,
         exclude: undefined,
         repositoryUrl: undefined,
@@ -165,6 +166,124 @@ describe("loadConfigResources", () => {
     ])
   })
 
+  it("should load and parse a bundle template", async () => {
+    const projectPath = getDataDir("test-projects", "bundles")
+    const configPath = resolve(projectPath, "templates.garden.yml")
+    const parsed: any = await loadConfigResources(projectPath, configPath)
+
+    expect(parsed).to.eql([
+      {
+        apiVersion: "garden.io/v0",
+        configPath,
+        path: projectPath,
+        kind: "BundleTemplate",
+        name: "combo",
+        inputsSchemaPath: "bundles.json",
+        modules: [
+          {
+            type: "test",
+            name: "${bundle.name}-${inputs.foo}-test-a",
+            include: [],
+            generateFiles: [
+              {
+                targetPath: "module-a.log",
+                value: "hellow",
+              },
+            ],
+          },
+          {
+            type: "test",
+            name: "${bundle.name}-${inputs.foo}-test-b",
+            include: [],
+            build: {
+              dependencies: ["${bundle.name}-${inputs.foo}-test-a"],
+            },
+            generateFiles: [
+              {
+                targetPath: "module-b.log",
+                sourcePath: "source.txt",
+              },
+            ],
+          },
+          {
+            type: "test",
+            name: "${bundle.name}-${inputs.foo}-test-c",
+            include: [],
+            build: {
+              dependencies: ["${bundle.name}-${inputs.foo}-test-a"],
+            },
+            generateFiles: [
+              {
+                targetPath: ".garden/subdir/module-c.log",
+                value:
+                  'Hello I am string!\ninput: ${inputs.foo}\nmodule reference: ${modules["${bundle.name}-${inputs.foo}-test-a"].path}\n',
+              },
+            ],
+          },
+        ],
+      },
+    ])
+  })
+
+  it("should load and parse a bundle", async () => {
+    const projectPath = getDataDir("test-projects", "bundles")
+    const configPath = resolve(projectPath, "templates.garden.yml")
+    const parsed = await loadConfigResources(projectPath, configPath)
+
+    expect(parsed).to.eql([
+      {
+        apiVersion: "garden.io/v0",
+        kind: "BundleTemplate",
+        name: "combo",
+        configPath,
+        path: projectPath,
+        inputsSchemaPath: "bundles.json",
+        modules: [
+          {
+            type: "test",
+            name: "${bundle.name}-${inputs.foo}-test-a",
+            include: [],
+            generateFiles: [
+              {
+                targetPath: "module-a.log",
+                value: "hellow",
+              },
+            ],
+          },
+          {
+            type: "test",
+            name: "${bundle.name}-${inputs.foo}-test-b",
+            include: [],
+            build: {
+              dependencies: ["${bundle.name}-${inputs.foo}-test-a"],
+            },
+            generateFiles: [
+              {
+                targetPath: "module-b.log",
+                sourcePath: "source.txt",
+              },
+            ],
+          },
+          {
+            type: "test",
+            name: "${bundle.name}-${inputs.foo}-test-c",
+            include: [],
+            build: {
+              dependencies: ["${bundle.name}-${inputs.foo}-test-a"],
+            },
+            generateFiles: [
+              {
+                targetPath: ".garden/subdir/module-c.log",
+                value:
+                  'Hello I am string!\ninput: ${inputs.foo}\nmodule reference: ${modules["${bundle.name}-${inputs.foo}-test-a"].path}\n',
+              },
+            ],
+          },
+        ],
+      },
+    ])
+  })
+
   it("should load and parse a config file defining a project and a module", async () => {
     const configPath = resolve(projectPathMultipleModules, "garden.yml")
     const parsed = await loadConfigResources(projectPathMultipleModules, configPath)
@@ -198,6 +317,7 @@ describe("loadConfigResources", () => {
         configPath,
         description: undefined,
         disabled: undefined,
+        generateFiles: undefined,
         include: ["*"],
         exclude: undefined,
         repositoryUrl: undefined,
@@ -231,6 +351,7 @@ describe("loadConfigResources", () => {
         allowPublish: undefined,
         description: undefined,
         disabled: undefined,
+        generateFiles: undefined,
         include: ["*"],
         exclude: undefined,
         repositoryUrl: undefined,
@@ -260,6 +381,7 @@ describe("loadConfigResources", () => {
         allowPublish: undefined,
         description: undefined,
         disabled: undefined,
+        generateFiles: undefined,
         include: ["*"],
         exclude: undefined,
         repositoryUrl: undefined,

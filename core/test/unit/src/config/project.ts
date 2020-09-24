@@ -1141,7 +1141,7 @@ describe("pickEnvironment", () => {
       () => pickEnvironment({ projectConfig: config, envString: "default", artifactsPath, username, secrets: {} }),
       (err) =>
         expect(stripAnsi(err.message)).to.equal(
-          "Error validating environment default (/garden.yml): key .defaultNamespace must be a string"
+          "Error validating environment default: key .defaultNamespace must be a string"
         )
     )
   })

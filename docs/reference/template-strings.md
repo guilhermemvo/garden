@@ -1,5 +1,5 @@
 ---
-order: 5
+order: 50
 title: Template Strings
 ---
 
@@ -783,6 +783,44 @@ The task output value. Refer to individual [module type references](https://docs
 | --------------------------- |
 | `number | string | boolean` |
 
+### `${bundle.*}`
+
+Information about the bundle that generated the module, if applicable.
+
+| Type     |
+| -------- |
+| `object` |
+
+### `${bundle.name}`
+
+The name of the Bundle being resolved.
+
+| Type     |
+| -------- |
+| `string` |
+
+### `${bundle.templateName}`
+
+The name of the BundleTemplate of the Bundle being resolved.
+
+| Type     |
+| -------- |
+| `string` |
+
+### `${inputs.*}`
+
+The inputs provided to the module through a BundleTemplate, if applicable.
+
+| Type     | Default |
+| -------- | ------- |
+| `object` | `{}`    |
+
+### `${inputs.<input-key>}`
+
+| Type                                             |
+| ------------------------------------------------ |
+| `number | string | boolean | link | array[link]` |
+
 
 ## Output configuration context
 
@@ -1123,6 +1161,44 @@ The task output value. Refer to individual [module type references](https://docs
 | Type                        |
 | --------------------------- |
 | `number | string | boolean` |
+
+### `${bundle.*}`
+
+Information about the bundle that generated the module, if applicable.
+
+| Type     |
+| -------- |
+| `object` |
+
+### `${bundle.name}`
+
+The name of the Bundle being resolved.
+
+| Type     |
+| -------- |
+| `string` |
+
+### `${bundle.templateName}`
+
+The name of the BundleTemplate of the Bundle being resolved.
+
+| Type     |
+| -------- |
+| `string` |
+
+### `${inputs.*}`
+
+The inputs provided to the module through a BundleTemplate, if applicable.
+
+| Type     | Default |
+| -------- | ------- |
+| `object` | `{}`    |
+
+### `${inputs.<input-key>}`
+
+| Type                                             |
+| ------------------------------------------------ |
+| `number | string | boolean | link | array[link]` |
 
 
 ## Workflow configuration context

@@ -1,0 +1,6 @@
+kind: Project
+name: bundles
+environments:
+  - name: local
+providers:
+  - name: test-plugin

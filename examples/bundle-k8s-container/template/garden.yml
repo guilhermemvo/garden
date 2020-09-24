@@ -1,0 +1,15 @@
+kind: BundleTemplate
+name: k8s-container
+inputsSchemaPath: schema.json
+modules:
+  - type: container
+    name: ${bundle.name}-image
+    description: ${bundle.name} image
+  - type: kubernetes
+    name: ${bundle.name}-manifests
+    build:
+      dependencies: ["${bundle.name}-image"]
+    files: [.manifests.yml]
+    generateFiles:
+      - sourcePath: manifests.yml
+        targetPath: .manifests.yml
