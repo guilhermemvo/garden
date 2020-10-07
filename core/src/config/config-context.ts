@@ -767,9 +767,6 @@ export class ModuleTemplateContext extends ConfigContext {
   }
 }
 
-/**
- * This is used to render module names when rendering bundles.
- */
 export class ModuleTemplateConfigContext extends ProjectConfigContext {
   @schema(ParentContext.getSchema().description(`Information about the templated module being resolved.`))
   public parent: ParentContext

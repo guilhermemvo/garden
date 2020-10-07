@@ -1127,8 +1127,7 @@ export class Garden {
   }
 
   /**
-   * Load a module and/or a workflow from the specified config file path and return the configs,
-   * or null if no module or workflow is found.
+   * Load any non-Project resources from the specified config file path.
    *
    * @param configPath Path to a garden config file
    */

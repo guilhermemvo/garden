@@ -1,6 +1,6 @@
 kind: ModuleTemplate
 name: k8s-container
-inputsSchemaPath: module-templates.json
+inputsSchemaPath: schema.json
 modules:
   - type: container
     name: ${parent.name}-image

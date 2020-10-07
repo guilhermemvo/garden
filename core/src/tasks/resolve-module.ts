@@ -211,6 +211,44 @@ export class ResolveModuleTask extends BaseTask {
     const resolvedConfig = dependencyResults["resolve-module-config." + this.getName()]!.output as ModuleConfig
     const dependencyModules = getResolvedModules(dependencyResults)
 
+    // Write module files
+    const configContext = new ModuleConfigContext({
+      garden: this.garden,
+      resolvedProviders: this.resolvedProviders,
+      moduleName: this.moduleConfig.name,
+      dependencies: dependencyModules,
+      runtimeContext: this.runtimeContext,
+      parentName: this.moduleConfig.parentName,
+      templateName: this.moduleConfig.templateName,
+      inputs: this.moduleConfig.inputs,
+    })
+
+    await Bluebird.map(resolvedConfig.generateFiles || [], async (fileSpec) => {
+      let contents = fileSpec.value || ""
+
+      if (fileSpec.sourcePath) {
+        contents = (await readFile(fileSpec.sourcePath)).toString()
+        contents = await resolveTemplateString(contents, configContext)
+      }
+
+      const resolvedContents = resolveTemplateString(contents, configContext)
+      const targetDir = resolve(resolvedConfig.path, ...posix.dirname(fileSpec.targetPath).split(posix.sep))
+      const targetPath = resolve(resolvedConfig.path, ...fileSpec.targetPath.split(posix.sep))
+
+      try {
+        await mkdirp(targetDir)
+        await writeFile(targetPath, resolvedContents)
+      } catch (error) {
+        throw new FilesystemError(
+          `Unable to write templated file ${fileSpec.targetPath} from ${resolvedConfig.name}: ${error.message}`,
+          {
+            fileSpec,
+            error,
+          }
+        )
+      }
+    })
+
     const module = await moduleFromConfig(this.garden, this.log, resolvedConfig, dependencyModules)
 
     const moduleTypeDefinitions = await this.garden.getModuleTypes()
@@ -246,44 +284,6 @@ export class ResolveModuleTask extends BaseTask {
         })
       }
     }
-
-    // Write module files
-    const configContext = new ModuleConfigContext({
-      garden: this.garden,
-      resolvedProviders: this.resolvedProviders,
-      moduleName: this.moduleConfig.name,
-      dependencies: dependencyModules,
-      runtimeContext: this.runtimeContext,
-      parentName: this.moduleConfig.parentName,
-      templateName: this.moduleConfig.templateName,
-      inputs: this.moduleConfig.inputs,
-    })
-
-    await Bluebird.map(module.generateFiles || [], async (fileSpec) => {
-      let contents = fileSpec.value || ""
-
-      if (fileSpec.sourcePath) {
-        contents = (await readFile(fileSpec.sourcePath)).toString()
-        contents = await resolveTemplateString(contents, configContext)
-      }
-
-      const resolvedContents = resolveTemplateString(contents, configContext)
-      const targetDir = resolve(module.path, ...posix.dirname(fileSpec.targetPath).split(posix.sep))
-      const targetPath = resolve(module.path, ...fileSpec.targetPath.split(posix.sep))
-
-      try {
-        await mkdirp(targetDir)
-        await writeFile(targetPath, resolvedContents)
-      } catch (error) {
-        throw new FilesystemError(
-          `Unable to write templated file ${fileSpec.targetPath} from ${module.name}: ${error.message}`,
-          {
-            fileSpec,
-            error,
-          }
-        )
-      }
-    })
 
     return module
   }
