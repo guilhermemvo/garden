@@ -1,17 +1,17 @@
 ---
 order: 43
-title: Bundle Template Configuration
+title: Module Template Configuration
 ---
 
-# Bundle Template Configuration Reference
+# Module Template Configuration Reference
 
-Below is the schema reference for `BundleTemplate` configuration files. To learn more about bundles and bundle templates, see the [Bundles guide](../using-garden/bundles.md).
+Below is the schema reference for `ModuleTemplate` configuration files. To learn more about module templates, see the [Module Templates guide](../using-garden/module-templates.md).
 
 The reference is divided into two sections:
 * [YAML Schema](#yaml-schema) contains the config YAML schema
 * [Configuration keys](#configuration-keys) describes each individual schema key for the configuration files.
 
-Also check out the [Bundle reference](./bundle-config.md).
+Also check out the [`templated` module type reference](./module-types/templated.md).
 
 ## YAML Schema
 
@@ -21,7 +21,7 @@ The values in the schema below are the default values.
 # The schema version of this config (currently not used).
 apiVersion: garden.io/v0
 
-kind: BundleTemplate
+kind: ModuleTemplate
 
 # The name of the template.
 name:
@@ -37,13 +37,13 @@ inputsSchemaPath:
 # In addition to any template strings you can normally use for modules (see [the
 # reference](https://docs.garden.io/reference/template-strings#module-configuration-context)), you can reference the
 # inputs described by the inputs schema for the template, using ${inputs.*} template strings, as well as
-# ${bundle.name} and ${bundle.templateName}, to reference the name of the Bundle using the template, and the name of
-# the template itself, respectively. This also applies to file contents specified under the `files` key.
+# ${parent.name} and ${template.name}, to reference the name of the module using the template, and the name of the
+# template itself, respectively. This also applies to file contents specified under the `files` key.
 #
 # **Important: Make sure you use templates for any identifiers that must be unique, such as module names, service
 # names and task names. Otherwise you'll inevitably run into configuration errors. The module names can reference the
-# ${inputs.*}, ${bundle.name} and ${bundle.templateName} keys. Other identifiers can also reference those, plus any
-# other keys available for module templates (see [the module context
+# ${inputs.*}, ${parent.name} and ${template.name} keys. Other identifiers can also reference those, plus any other
+# keys available for module templates (see [the module context
 # reference](https://docs.garden.io/reference/template-strings#module-configuration-context)).**
 modules:
   - # The schema version of this config (currently not used).
@@ -131,13 +131,12 @@ modules:
     # A list of files to write to the module directory when resolving this module. This is useful to automatically
     # generate (and template) any supporting files needed for the module.
     generateFiles:
-      - # POSIX-style filename to read the source file contents from, relative to the path of the BundleTemplate
-        # configuration file.
+      - # POSIX-style filename to read the source file contents from, relative to the path of the module (or the
+        # ModuleTemplate configuration file if one is being applied).
         # This file may contain template strings, much like any other field in the configuration.
         sourcePath:
 
-        # POSIX-style filename to write the resolved file contents to, relative to the path of the Bundle that
-        # references the template.
+        # POSIX-style filename to write the resolved file contents to, relative to the path of the module.
         #
         # Note that any existing file with the same name will be overwritten. If the path contains one or more
         # directories, they will be automatically created if missing.
@@ -166,7 +165,7 @@ The schema version of this config (currently not used).
 
 | Type     | Allowed Values   | Default            | Required |
 | -------- | ---------------- | ------------------ | -------- |
-| `string` | "BundleTemplate" | `"BundleTemplate"` | Yes      |
+| `string` | "ModuleTemplate" | `"ModuleTemplate"` | Yes      |
 
 ### `name`
 
@@ -188,9 +187,9 @@ Path to a JSON schema file describing the expected inputs for the template. Must
 
 A list of modules this template will output. The schema for each is the same as when you create modules normally in configuration files, with the addition of a `path` field, which allows you to specify a sub-directory to set as the module root.
 
-In addition to any template strings you can normally use for modules (see [the reference](https://docs.garden.io/reference/template-strings#module-configuration-context)), you can reference the inputs described by the inputs schema for the template, using ${inputs.*} template strings, as well as ${bundle.name} and ${bundle.templateName}, to reference the name of the Bundle using the template, and the name of the template itself, respectively. This also applies to file contents specified under the `files` key.
+In addition to any template strings you can normally use for modules (see [the reference](https://docs.garden.io/reference/template-strings#module-configuration-context)), you can reference the inputs described by the inputs schema for the template, using ${inputs.*} template strings, as well as ${parent.name} and ${template.name}, to reference the name of the module using the template, and the name of the template itself, respectively. This also applies to file contents specified under the `files` key.
 
-**Important: Make sure you use templates for any identifiers that must be unique, such as module names, service names and task names. Otherwise you'll inevitably run into configuration errors. The module names can reference the ${inputs.*}, ${bundle.name} and ${bundle.templateName} keys. Other identifiers can also reference those, plus any other keys available for module templates (see [the module context reference](https://docs.garden.io/reference/template-strings#module-configuration-context)).**
+**Important: Make sure you use templates for any identifiers that must be unique, such as module names, service names and task names. Otherwise you'll inevitably run into configuration errors. The module names can reference the ${inputs.*}, ${parent.name} and ${template.name} keys. Other identifiers can also reference those, plus any other keys available for module templates (see [the module context reference](https://docs.garden.io/reference/template-strings#module-configuration-context)).**
 
 | Type            | Required |
 | --------------- | -------- |
@@ -432,7 +431,7 @@ A list of files to write to the module directory when resolving this module. Thi
 
 [modules](#modules) > [generateFiles](#modulesgeneratefiles) > sourcePath
 
-POSIX-style filename to read the source file contents from, relative to the path of the BundleTemplate configuration file.
+POSIX-style filename to read the source file contents from, relative to the path of the module (or the ModuleTemplate configuration file if one is being applied).
 This file may contain template strings, much like any other field in the configuration.
 
 | Type        | Required |
@@ -443,7 +442,7 @@ This file may contain template strings, much like any other field in the configu
 
 [modules](#modules) > [generateFiles](#modulesgeneratefiles) > targetPath
 
-POSIX-style filename to write the resolved file contents to, relative to the path of the Bundle that references the template.
+POSIX-style filename to write the resolved file contents to, relative to the path of the module.
 
 Note that any existing file with the same name will be overwritten. If the path contains one or more directories, they will be automatically created if missing.
 

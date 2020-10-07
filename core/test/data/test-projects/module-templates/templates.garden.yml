@@ -1,29 +1,29 @@
-kind: BundleTemplate
+kind: ModuleTemplate
 name: combo
-inputsSchemaPath: "bundles.json"
+inputsSchemaPath: "module-templates.json"
 modules:
   - type: test
-    name: ${bundle.name}-${inputs.foo}-test-a
+    name: ${parent.name}-${inputs.foo}-test-a
     include: []
     generateFiles:
       - targetPath: module-a.log
         value: "hellow"
   - type: test
-    name: ${bundle.name}-${inputs.foo}-test-b
+    name: ${parent.name}-${inputs.foo}-test-b
     build:
-      dependencies: ["${bundle.name}-${inputs.foo}-test-a"]
+      dependencies: ["${parent.name}-${inputs.foo}-test-a"]
     include: []
     generateFiles:
       - targetPath: module-b.log
         sourcePath: source.txt
   - type: test
-    name: ${bundle.name}-${inputs.foo}-test-c
+    name: ${parent.name}-${inputs.foo}-test-c
     build:
-      dependencies: ["${bundle.name}-${inputs.foo}-test-a"]
+      dependencies: ["${parent.name}-${inputs.foo}-test-a"]
     include: []
     generateFiles:
       - targetPath: .garden/subdir/module-c.log
         value: |
           Hello I am string!
           input: ${inputs.foo}
-          module reference: ${modules["${bundle.name}-${inputs.foo}-test-a"].path}
+          module reference: ${modules["${parent.name}-${inputs.foo}-test-a"].path}

@@ -783,25 +783,33 @@ The task output value. Refer to individual [module type references](https://docs
 | --------------------------- |
 | `number | string | boolean` |
 
-### `${bundle.*}`
+### `${parent.*}`
 
-Information about the bundle that generated the module, if applicable.
+Information about the parent module (if the module is a submodule, e.g. generated in a templated module).
 
 | Type     |
 | -------- |
 | `object` |
 
-### `${bundle.name}`
+### `${parent.name}`
 
-The name of the Bundle being resolved.
+The name of the parent module.
 
 | Type     |
 | -------- |
 | `string` |
 
-### `${bundle.templateName}`
+### `${template.*}`
 
-The name of the BundleTemplate of the Bundle being resolved.
+Information about the ModuleTemplate used when generating the module.
+
+| Type     |
+| -------- |
+| `object` |
+
+### `${template.name}`
+
+The name of the ModuleTemplate being resolved.
 
 | Type     |
 | -------- |
@@ -809,7 +817,7 @@ The name of the BundleTemplate of the Bundle being resolved.
 
 ### `${inputs.*}`
 
-The inputs provided to the module through a BundleTemplate, if applicable.
+The inputs provided to the module through a ModuleTemplate, if applicable.
 
 | Type     | Default |
 | -------- | ------- |
@@ -1162,25 +1170,33 @@ The task output value. Refer to individual [module type references](https://docs
 | --------------------------- |
 | `number | string | boolean` |
 
-### `${bundle.*}`
+### `${parent.*}`
 
-Information about the bundle that generated the module, if applicable.
+Information about the parent module (if the module is a submodule, e.g. generated in a templated module).
 
 | Type     |
 | -------- |
 | `object` |
 
-### `${bundle.name}`
+### `${parent.name}`
 
-The name of the Bundle being resolved.
+The name of the parent module.
 
 | Type     |
 | -------- |
 | `string` |
 
-### `${bundle.templateName}`
+### `${template.*}`
 
-The name of the BundleTemplate of the Bundle being resolved.
+Information about the ModuleTemplate used when generating the module.
+
+| Type     |
+| -------- |
+| `object` |
+
+### `${template.name}`
+
+The name of the ModuleTemplate being resolved.
 
 | Type     |
 | -------- |
@@ -1188,7 +1204,7 @@ The name of the BundleTemplate of the Bundle being resolved.
 
 ### `${inputs.*}`
 
-The inputs provided to the module through a BundleTemplate, if applicable.
+The inputs provided to the module through a ModuleTemplate, if applicable.
 
 | Type     | Default |
 | -------- | ------- |

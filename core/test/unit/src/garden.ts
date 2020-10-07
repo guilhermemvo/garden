@@ -137,6 +137,10 @@ describe("Garden", () => {
           dependencies: [],
           path: projectRoot,
         },
+        "templated": {
+          name: "templated",
+          path: projectRoot,
+        },
         "test-plugin": testPluginProvider.config,
         "test-plugin-b": {
           name: "test-plugin-b",
@@ -180,6 +184,10 @@ describe("Garden", () => {
         "container": {
           name: "container",
           dependencies: [],
+          path: projectRoot,
+        },
+        "templated": {
+          name: "templated",
           path: projectRoot,
         },
         "test-plugin": {
@@ -866,7 +874,7 @@ describe("Garden", () => {
 
         const moduleTypes = await garden.getModuleTypes()
 
-        expect(Object.keys(moduleTypes).sort()).to.eql(["bar", "container", "exec", "foo"])
+        expect(Object.keys(moduleTypes).sort()).to.eql(["bar", "container", "exec", "foo", "templated"])
       })
 
       it("should throw if attempting to redefine a module type defined in the base", async () => {
@@ -1212,7 +1220,7 @@ describe("Garden", () => {
 
           const moduleTypes = await garden.getModuleTypes()
 
-          expect(Object.keys(moduleTypes).sort()).to.eql(["a", "b", "c", "container", "exec"])
+          expect(Object.keys(moduleTypes).sort()).to.eql(["a", "b", "c", "container", "exec", "templated"])
         })
 
         it("should throw if attempting to redefine a module type defined in the base's base", async () => {
@@ -1430,24 +1438,12 @@ describe("Garden", () => {
       const providers = await garden.resolveProviders(garden.log)
       const configs = mapValues(providers, (p) => p.config)
 
-      expect(configs).to.eql({
-        "exec": {
-          name: "exec",
-          dependencies: [],
-          path: projectRoot,
-        },
-        "container": {
-          name: "container",
-          dependencies: [],
-          path: projectRoot,
-        },
-        "test-plugin": testPluginProvider.config,
-        "test-plugin-b": {
-          name: "test-plugin-b",
-          dependencies: [],
-          environments: ["local"],
-          path: projectRoot,
-        },
+      expect(configs["test-plugin"]).to.eql(testPluginProvider.config)
+      expect(configs["test-plugin-b"]).to.eql({
+        name: "test-plugin-b",
+        dependencies: [],
+        environments: ["local"],
+        path: projectRoot,
       })
     })
 
@@ -2261,8 +2257,8 @@ describe("Garden", () => {
       expect(getNames(modules).sort()).to.eql(["module-a", "module-b", "module-c"])
     })
 
-    it("should resolve bundle templates and any bundles referencing them", async () => {
-      const root = resolve(dataDir, "test-projects", "bundles")
+    it("should resolve module templates and any modules referencing them", async () => {
+      const root = resolve(dataDir, "test-projects", "module-templates")
       const garden = await makeTestGarden(root)
       await garden.scanAndAddConfigs()
 
@@ -2295,8 +2291,8 @@ describe("Garden", () => {
             value: "hellow",
           },
         ],
-        bundleName: "foo",
-        bundleTemplateName: "combo",
+        parentName: "foo",
+        templateName: "combo",
         inputs: {
           foo: "bar",
         },
@@ -2326,23 +2322,23 @@ describe("Garden", () => {
             sourcePath: resolve(root, "source.txt"),
           },
         ],
-        bundleName: "foo",
-        bundleTemplateName: "combo",
+        parentName: "foo",
+        templateName: "combo",
         inputs: {
           foo: "bar",
         },
       })
     })
 
-    it("should throw on duplicate bundle template names", async () => {
-      const garden = await makeTestGarden(resolve(dataDir, "test-projects", "bundles-duplicate-templates"))
+    it("should throw on duplicate module template names", async () => {
+      const garden = await makeTestGarden(resolve(dataDir, "test-projects", "duplicate-module-templates"))
 
       await expectError(
         () => garden.scanAndAddConfigs(),
         (err) =>
           expect(err.message).to.equal(
             dedent`
-            Found duplicate names of Bundles:
+            Found duplicate names of ModuleTemplates:
             Name combo is used at templates.garden.yml and templates.garden.yml
             `
           )
@@ -2626,7 +2622,7 @@ describe("Garden", () => {
     })
 
     it("resolves and writes a module file with a string value", async () => {
-      const projectRoot = getDataDir("test-projects", "bundles")
+      const projectRoot = getDataDir("test-projects", "module-templates")
       const filePath = resolve(projectRoot, "module-a.log")
 
       await remove(filePath)
@@ -2640,7 +2636,7 @@ describe("Garden", () => {
     })
 
     it("resolves and writes a module file with a source file", async () => {
-      const projectRoot = getDataDir("test-projects", "bundles")
+      const projectRoot = getDataDir("test-projects", "module-templates")
       const filePath = resolve(projectRoot, "module-b.log")
 
       await remove(filePath)
@@ -2658,7 +2654,7 @@ describe("Garden", () => {
     })
 
     it("resolves and writes a module file to a subdirectory and creates the directory", async () => {
-      const projectRoot = getDataDir("test-projects", "bundles")
+      const projectRoot = getDataDir("test-projects", "module-templates")
       const filePath = resolve(projectRoot, ".garden", "subdir", "module-c.log")
 
       await remove(filePath)

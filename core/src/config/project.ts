@@ -43,7 +43,7 @@ export const defaultEnvVarfilePath = (environmentName: string) => `garden.${envi
 
 // These plugins are always loaded
 export const defaultNamespace = "default"
-export const fixedPlugins = ["exec", "container"]
+export const fixedPlugins = ["exec", "container", "templated"]
 
 export type EnvironmentNamespacing = "disabled" | "optional" | "required"
 

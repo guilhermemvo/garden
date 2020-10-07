@@ -1125,13 +1125,13 @@ moduleConfigs:
     # The module spec, as defined by the provider plugin.
     spec:
 
-    # The bundle that generated the module, if applicable.
-    bundleName:
+    # The name of the parent module (e.g. a templated module that generated this module), if applicable.
+    parentName:
 
-    # The bundle template that generated the module, if applicable.
-    bundleTemplateName:
+    # The module template that generated the module, if applicable.
+    templateName:
 
-    # Inputs provided when rendering the module from a bundle template, if applicable.
+    # Inputs provided when rendering the module from a module template, if applicable.
     inputs:
       <name>:
 
@@ -1544,13 +1544,13 @@ modules:
     # The module spec, as defined by the provider plugin.
     spec:
 
-    # The bundle that generated the module, if applicable.
-    bundleName:
+    # The name of the parent module (e.g. a templated module that generated this module), if applicable.
+    parentName:
 
-    # The bundle template that generated the module, if applicable.
-    bundleTemplateName:
+    # The module template that generated the module, if applicable.
+    templateName:
 
-    # Inputs provided when rendering the module from a bundle template, if applicable.
+    # Inputs provided when rendering the module from a module template, if applicable.
     inputs:
       <name>:
 

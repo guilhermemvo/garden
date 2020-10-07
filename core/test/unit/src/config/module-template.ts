@@ -11,45 +11,45 @@ import { DEFAULT_API_VERSION } from "../../../../src/constants"
 import { expectError, TestGarden, getDataDir, makeTestGarden } from "../../../helpers"
 import stripAnsi from "strip-ansi"
 import {
-  BundleTemplateResource,
-  resolveBundleTemplate,
-  BundleResource,
-  BundleTemplateConfig,
-  resolveBundle,
-} from "../../../../src/config/bundle"
+  ModuleTemplateResource,
+  resolveModuleTemplate,
+  ModuleTemplateConfig,
+  resolveTemplatedModule,
+} from "../../../../src/config/module-template"
 import { resolve } from "path"
 import { joi } from "../../../../src/config/common"
 import { pathExists, remove } from "fs-extra"
+import { TemplatedModuleConfig } from "../../../../src/plugins/templated"
 
-describe("bundle configs and templates", () => {
+describe("module templates", () => {
   let garden: TestGarden
 
-  const projectRoot = getDataDir("test-projects", "bundles")
+  const projectRoot = getDataDir("test-projects", "module-templates")
 
   before(async () => {
     garden = await makeTestGarden(projectRoot)
   })
 
-  describe("resolveBundleTemplate", () => {
+  describe("resolveModuleTemplate", () => {
     const defaults = {
       apiVersion: DEFAULT_API_VERSION,
-      kind: "BundleTemplate",
+      kind: "ModuleTemplate",
       name: "test",
       path: projectRoot,
       configPath: resolve(projectRoot, "templates.garden.yml"),
     }
 
     it("resolves template strings for fields other than modules and files", async () => {
-      const config: BundleTemplateResource = {
+      const config: ModuleTemplateResource = {
         ...defaults,
         inputsSchemaPath: "${project.name}.json",
       }
-      const resolved = await resolveBundleTemplate(garden, config)
-      expect(resolved.inputsSchemaPath).to.eql("bundles.json")
+      const resolved = await resolveModuleTemplate(garden, config)
+      expect(resolved.inputsSchemaPath).to.eql("module-templates.json")
     })
 
     it("ignores template strings in modules", async () => {
-      const config: BundleTemplateResource = {
+      const config: ModuleTemplateResource = {
         ...defaults,
         modules: [
           {
@@ -58,7 +58,7 @@ describe("bundle configs and templates", () => {
           },
         ],
       }
-      const resolved = await resolveBundleTemplate(garden, config)
+      const resolved = await resolveModuleTemplate(garden, config)
       expect(resolved.modules).to.eql(config.modules)
     })
 
@@ -68,19 +68,19 @@ describe("bundle configs and templates", () => {
         foo: "bar",
       }
       await expectError(
-        () => resolveBundleTemplate(garden, config),
+        () => resolveModuleTemplate(garden, config),
         (err) =>
           expect(stripAnsi(err.message)).to.equal(
-            'Error validating BundleTemplate (templates.garden.yml): key "foo" is not allowed at path [foo]'
+            'Error validating ModuleTemplate (templates.garden.yml): key "foo" is not allowed at path [foo]'
           )
       )
     })
 
     it("defaults to an empty object schema for inputs", async () => {
-      const config: BundleTemplateResource = {
+      const config: ModuleTemplateResource = {
         ...defaults,
       }
-      const resolved = await resolveBundleTemplate(garden, config)
+      const resolved = await resolveModuleTemplate(garden, config)
       expect((<any>resolved.inputsSchema)._rules[0].args.jsonSchema.schema).to.eql({
         type: "object",
         additionalProperties: false,
@@ -88,48 +88,48 @@ describe("bundle configs and templates", () => {
     })
 
     it("parses a valid JSON inputs schema", async () => {
-      const config: BundleTemplateResource = {
+      const config: ModuleTemplateResource = {
         ...defaults,
-        inputsSchemaPath: "bundles.json",
+        inputsSchemaPath: "module-templates.json",
       }
-      const resolved = await resolveBundleTemplate(garden, config)
+      const resolved = await resolveModuleTemplate(garden, config)
       expect(resolved.inputsSchema).to.exist
     })
 
     it("throws if inputs schema cannot be found", async () => {
-      const config: BundleTemplateResource = {
+      const config: ModuleTemplateResource = {
         ...defaults,
         inputsSchemaPath: "foo.json",
       }
       const path = resolve(config.path, config.inputsSchemaPath!)
       await expectError(
-        () => resolveBundleTemplate(garden, config),
+        () => resolveModuleTemplate(garden, config),
         (err) =>
           expect(stripAnsi(err.message)).to.equal(
-            `Unable to read inputs schema for BundleTemplate test: Error: ENOENT: no such file or directory, open '${path}'`
+            `Unable to read inputs schema for ModuleTemplate test: Error: ENOENT: no such file or directory, open '${path}'`
           )
       )
     })
 
     it("throws if an invalid JSON schema is provided", async () => {
-      const config: BundleTemplateResource = {
+      const config: ModuleTemplateResource = {
         ...defaults,
         inputsSchemaPath: "invalid.json",
       }
       await expectError(
-        () => resolveBundleTemplate(garden, config),
+        () => resolveModuleTemplate(garden, config),
         (err) =>
           expect(stripAnsi(err.message)).to.equal(
-            `Inputs schema for BundleTemplate test has type string, but should be "object".`
+            `Inputs schema for ModuleTemplate test has type string, but should be "object".`
           )
       )
     })
   })
 
-  describe("resolveBundle", () => {
-    const template: BundleTemplateConfig = {
+  describe("resolveTemplatedModule", () => {
+    const template: ModuleTemplateConfig = {
       apiVersion: DEFAULT_API_VERSION,
-      kind: "BundleTemplate",
+      kind: "ModuleTemplate",
       name: "test",
       path: projectRoot,
       configPath: resolve(projectRoot, "modules.garden.yml"),
@@ -143,50 +143,66 @@ describe("bundle configs and templates", () => {
       test: template,
     }
 
-    const defaults = {
+    const defaults: TemplatedModuleConfig = {
       apiVersion: DEFAULT_API_VERSION,
-      kind: "Bundle",
+      kind: "Module",
       name: "test",
+      type: "templated",
       path: projectRoot,
       configPath: resolve(projectRoot, "modules.garden.yml"),
-      template: "test",
+      spec: {
+        template: "test",
+      },
+      allowPublish: false,
+      build: { dependencies: [] },
+      disabled: false,
+      modules: [],
+      serviceConfigs: [],
+      taskConfigs: [],
+      testConfigs: [],
     }
 
-    it("resolves template strings on the bundle config", async () => {
-      const config: BundleResource = {
+    it("resolves template strings on the templated module config", async () => {
+      const config: TemplatedModuleConfig = {
         ...defaults,
-        inputs: {
-          foo: "${project.name}",
+        spec: {
+          ...defaults.spec,
+          inputs: {
+            foo: "${project.name}",
+          },
         },
       }
-      const resolved = await resolveBundle(garden, config, templates)
-      expect(resolved.inputs?.foo).to.equal("bundles")
+      const { resolvedSpec } = await resolveTemplatedModule(garden, config, templates)
+      expect(resolvedSpec.inputs?.foo).to.equal("module-templates")
     })
 
-    it("resolves all bundle and input template strings, ignoring others", async () => {
+    it("resolves all parent, template and input template strings, ignoring others", async () => {
       const _templates = {
         test: {
           ...template,
           modules: [
             {
               type: "test",
-              name: "${bundle.name}-${bundle.templateName}-${inputs.foo}",
+              name: "${parent.name}-${template.name}-${inputs.foo}",
               build: {
-                dependencies: [{ name: "${bundle.name}-${bundle.templateName}-foo", copy: [] }],
+                dependencies: [{ name: "${parent.name}-${template.name}-foo", copy: [] }],
               },
               image: "${modules.foo.outputs.bar || inputs.foo}",
             },
           ],
         },
       }
-      const config: BundleResource = {
+      const config: TemplatedModuleConfig = {
         ...defaults,
-        inputs: {
-          foo: "bar",
+        spec: {
+          ...defaults.spec,
+          inputs: {
+            foo: "bar",
+          },
         },
       }
 
-      const resolved = await resolveBundle(garden, config, _templates)
+      const resolved = await resolveTemplatedModule(garden, config, _templates)
       const module = resolved.modules[0]
 
       expect(module.name).to.equal("test-test-bar")
@@ -194,44 +210,52 @@ describe("bundle configs and templates", () => {
       expect(module.spec.image).to.equal("${modules.foo.outputs.bar || inputs.foo}")
     })
 
-    it("throws if bundle is invalid", async () => {
+    it("throws if module is invalid", async () => {
       const config: any = {
         ...defaults,
-        foo: "bar",
+        spec: {
+          ...defaults.spec,
+          foo: "bar",
+        },
       }
       await expectError(
-        () => resolveBundle(garden, config, templates),
+        () => resolveTemplatedModule(garden, config, templates),
         (err) =>
           expect(stripAnsi(err.message)).to.equal(
-            'Error validating Bundle (modules.garden.yml): key "foo" is not allowed at path [foo]'
+            'Error validating templated module test (modules.garden.yml): key "foo" is not allowed at path [foo]'
           )
       )
     })
 
     it("throws if template cannot be found", async () => {
-      const config: BundleResource = {
+      const config: TemplatedModuleConfig = {
         ...defaults,
-        template: "foo",
+        spec: { ...defaults.spec, template: "foo" },
       }
       await expectError(
-        () => resolveBundle(garden, config, templates),
+        () => resolveTemplatedModule(garden, config, templates),
         (err) =>
           expect(stripAnsi(err.message)).to.equal(
-            "Bundle test references template foo, which cannot be found. Available templates: test"
+            "Templated module test references template foo, which cannot be found. Available templates: test"
           )
       )
     })
 
     it("throws if inputs don't match inputs schema", async () => {
-      const config: BundleResource = {
+      const config: TemplatedModuleConfig = {
         ...defaults,
-        inputs: { foo: 123 },
+        spec: {
+          ...defaults.spec,
+          inputs: {
+            foo: 123,
+          },
+        },
       }
       await expectError(
-        () => resolveBundle(garden, config, templates),
+        () => resolveTemplatedModule(garden, config, templates),
         (err) =>
           expect(stripAnsi(err.message)).to.equal(
-            "Error validating Bundle (modules.garden.yml): key .inputs.foo must be a string"
+            "Error validating templated module test (modules.garden.yml): key .inputs.foo must be a string"
           )
       )
     })
@@ -249,14 +273,17 @@ describe("bundle configs and templates", () => {
           ],
         },
       }
-      const config: BundleResource = {
+      const config: TemplatedModuleConfig = {
         ...defaults,
-        inputs: {
-          foo: "bar",
+        spec: {
+          ...defaults.spec,
+          inputs: {
+            foo: "bar",
+          },
         },
       }
 
-      const resolved = await resolveBundle(garden, config, _templates)
+      const resolved = await resolveTemplatedModule(garden, config, _templates)
 
       const absPath = resolve(config.path, "foo", "bar.txt")
       expect(resolved.modules[0].generateFiles![0].sourcePath).to.equal(absPath)
@@ -278,21 +305,24 @@ describe("bundle configs and templates", () => {
           ],
         },
       }
-      const config: BundleResource = {
+      const config: TemplatedModuleConfig = {
         ...defaults,
-        inputs: {
-          foo: "bar",
+        spec: {
+          ...defaults.spec,
+          inputs: {
+            foo: "bar",
+          },
         },
       }
 
-      const resolved = await resolveBundle(garden, config, _templates)
+      const resolved = await resolveTemplatedModule(garden, config, _templates)
       const module = resolved.modules[0]
 
       expect(module.path).to.equal(absPath)
       expect(await pathExists(module.path)).to.be.true
     })
 
-    it("attaches bundle metadata to the output modules", async () => {
+    it("attaches parent module and template metadata to the output modules", async () => {
       const _templates = {
         test: {
           ...template,
@@ -304,18 +334,21 @@ describe("bundle configs and templates", () => {
           ],
         },
       }
-      const config: BundleResource = {
+      const config: TemplatedModuleConfig = {
         ...defaults,
-        inputs: {
-          foo: "bar",
+        spec: {
+          ...defaults.spec,
+          inputs: {
+            foo: "bar",
+          },
         },
       }
 
-      const resolved = await resolveBundle(garden, config, _templates)
+      const resolved = await resolveTemplatedModule(garden, config, _templates)
 
-      expect(resolved.modules[0].bundleName).to.equal(config.name)
-      expect(resolved.modules[0].bundleTemplateName).to.equal(template.name)
-      expect(resolved.modules[0].inputs).to.eql(config.inputs)
+      expect(resolved.modules[0].parentName).to.equal(config.name)
+      expect(resolved.modules[0].templateName).to.equal(template.name)
+      expect(resolved.modules[0].inputs).to.eql(config.spec.inputs)
     })
 
     it("resolves template strings in template module names", async () => {
@@ -330,16 +363,41 @@ describe("bundle configs and templates", () => {
           ],
         },
       }
-      const config: BundleResource = {
+      const config: TemplatedModuleConfig = {
         ...defaults,
-        inputs: {
-          foo: "bar",
+        spec: {
+          ...defaults.spec,
+          inputs: {
+            foo: "bar",
+          },
         },
       }
 
-      const resolved = await resolveBundle(garden, config, _templates)
+      const resolved = await resolveTemplatedModule(garden, config, _templates)
 
       expect(resolved.modules[0].name).to.equal("bar")
+    })
+
+    it("returns no modules if templated module is disabled", async () => {
+      const _templates = {
+        test: {
+          ...template,
+          modules: [
+            {
+              type: "test",
+              name: "foo",
+            },
+          ],
+        },
+      }
+      const config: TemplatedModuleConfig = {
+        ...defaults,
+        disabled: true,
+      }
+
+      const resolved = await resolveTemplatedModule(garden, config, _templates)
+
+      expect(resolved.modules.length).to.equal(0)
     })
 
     it("throws if an invalid module spec is in the template", async () => {
@@ -354,14 +412,14 @@ describe("bundle configs and templates", () => {
           ],
         },
       }
-      const config: BundleResource = {
+      const config: TemplatedModuleConfig = {
         ...defaults,
       }
       await expectError(
-        () => resolveBundle(garden, config, _templates),
+        () => resolveTemplatedModule(garden, config, _templates),
         (err) =>
           expect(stripAnsi(err.message)).to.equal(
-            "BundleTemplate test returned an invalid module (named foo) for Bundle test: Error validating module (modules.garden.yml): key .type must be a string"
+            "ModuleTemplate test returned an invalid module (named foo) for templated module test: Error validating module (modules.garden.yml): key .type must be a string"
           )
       )
     })
@@ -378,14 +436,14 @@ describe("bundle configs and templates", () => {
           ],
         },
       }
-      const config: BundleResource = {
+      const config: TemplatedModuleConfig = {
         ...defaults,
       }
       await expectError(
-        () => resolveBundle(garden, config, _templates),
+        () => resolveTemplatedModule(garden, config, _templates),
         (err) =>
           expect(stripAnsi(err.message)).to.equal(
-            "BundleTemplate test returned an invalid module (named 123) for Bundle test: Error validating module (modules.garden.yml): key .name must be a string"
+            "ModuleTemplate test returned an invalid module (named 123) for templated module test: Error validating module (modules.garden.yml): key .name must be a string"
           )
       )
     })

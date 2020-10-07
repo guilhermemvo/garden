@@ -19,7 +19,7 @@ import { validateWithPath } from "./validation"
 import { WorkflowResource } from "./workflow"
 import { listDirectory } from "../util/fs"
 import { isConfigFilename } from "../util/fs"
-import { TemplateKind, BundleKind, templateKind, bundleKind, BundleTemplateResource, BundleResource } from "./bundle"
+import { TemplateKind, templateKind, ModuleTemplateResource } from "./module-template"
 
 export interface GardenResource {
   apiVersion: string
@@ -29,7 +29,7 @@ export interface GardenResource {
   configPath?: string
 }
 
-export type ConfigKind = "Module" | "Workflow" | "Project" | TemplateKind | BundleKind
+export type ConfigKind = "Module" | "Workflow" | "Project" | TemplateKind
 
 /**
  * Attempts to parse content as YAML, and applies a linter to produce more informative error messages when
@@ -113,8 +113,6 @@ function prepareResource({
     return prepareWorkflowResource(spec, configPath)
   } else if (kind === templateKind) {
     return prepareTemplateResource(spec, configPath)
-  } else if (kind === bundleKind) {
-    return prepareBundleResource(spec, configPath)
   } else if (allowInvalid) {
     return spec
   } else if (!kind) {
@@ -206,24 +204,12 @@ export function prepareWorkflowResource(spec: any, configPath: string): Workflow
   return spec
 }
 
-export function prepareTemplateResource(spec: any, configPath: string): BundleTemplateResource {
+export function prepareTemplateResource(spec: any, configPath: string): ModuleTemplateResource {
   if (!spec.apiVersion) {
     spec.apiVersion = DEFAULT_API_VERSION
   }
 
   spec.kind = templateKind
-  spec.path = dirname(configPath)
-  spec.configPath = configPath
-
-  return spec
-}
-
-export function prepareBundleResource(spec: any, configPath: string): BundleResource {
-  if (!spec.apiVersion) {
-    spec.apiVersion = DEFAULT_API_VERSION
-  }
-
-  spec.kind = bundleKind
   spec.path = dirname(configPath)
   spec.configPath = configPath
 

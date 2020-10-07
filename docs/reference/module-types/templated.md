@@ -1,28 +1,25 @@
 ---
-title: "`hadolint` Module Type"
-tocTitle: "`hadolint`"
+title: "`templated` Module Type"
+tocTitle: "`templated`"
 ---
 
-# `hadolint` Module Type
+# `templated` Module Type
 
 ## Description
 
-Runs `hadolint` on the specified Dockerfile.
+A special module type, for rendering [module templates](../../using-garden/module-templates.md). See the [Module Templates guide](../../using-garden/module-templates.md) for more information.
 
-> Note: In most cases, you'll let the [provider](https://docs.garden.io/reference/providers/hadolint) create this module type automatically, but you may in some cases want or need to manually specify a Dockerfile to lint.
+Specify the name of a ModuleTemplate with the `template` field, and provide any expected inputs using the `inputs` field. The generated modules becomes sub-modules of this module.
 
-To configure `hadolint`, you can use `.hadolint.yaml` config files. For each test, we first look for one in
-the module root. If none is found there, we check the project root, and if none is there we fall back to default
-configuration. Note that for reasons of portability, we do not fall back to global/user configuration files.
-
-See the [hadolint docs](https://github.com/hadolint/hadolint#configure) for details on how to configure it.
+Note that the following common Module configuration fields are disallowed for this module type:
+`build`, `description`, `include`, `exclude`, `repositoryUrl`, `allowPublish` and `generateFiles`
 
 Below is the full schema reference. For an introduction to configuring Garden modules, please look at our [Configuration
 guide](../../using-garden/configuration-overview.md).
 
 The [first section](#complete-yaml-schema) contains the complete YAML schema, and the [second section](#configuration-keys) describes each schema key.
 
-`hadolint` modules also export values that are available in template strings. See the [Outputs](#outputs) section below for details.
+`templated` modules also export values that are available in template strings. See the [Outputs](#outputs) section below for details.
 
 ## Complete YAML Schema
 
@@ -126,8 +123,11 @@ generateFiles:
     # The desired file contents as a string.
     value:
 
-# POSIX-style path to a Dockerfile that you want to lint with `hadolint`.
-dockerfilePath:
+# The ModuleTemplate to use to generate the sub-modules of this module.
+template:
+
+# A map of inputs to pass to the ModuleTemplate. These must match the inputs schema of the ModuleTemplate.
+inputs:
 ```
 
 ## Configuration Keys
@@ -367,20 +367,28 @@ The desired file contents as a string.
 | -------- | -------- |
 | `string` | No       |
 
-### `dockerfilePath`
+### `template`
 
-POSIX-style path to a Dockerfile that you want to lint with `hadolint`.
+The ModuleTemplate to use to generate the sub-modules of this module.
 
-| Type        | Required |
-| ----------- | -------- |
-| `posixPath` | Yes      |
+| Type     | Required |
+| -------- | -------- |
+| `string` | Yes      |
+
+### `inputs`
+
+A map of inputs to pass to the ModuleTemplate. These must match the inputs schema of the ModuleTemplate.
+
+| Type     | Required |
+| -------- | -------- |
+| `object` | No       |
 
 
 ## Outputs
 
 ### Module Outputs
 
-The following keys are available via the `${modules.<module-name>}` template string key for `hadolint`
+The following keys are available via the `${modules.<module-name>}` template string key for `templated`
 modules.
 
 ### `${modules.<module-name>.buildPath}`

@@ -863,8 +863,8 @@ export class ActionRouter implements TypeGuard {
         resolvedProviders: providers,
         dependencies: modules,
         runtimeContext,
-        bundleName: module.bundleName,
-        bundleTemplateName: module.bundleTemplateName,
+        parentName: module.parentName,
+        templateName: module.templateName,
         inputs: module.inputs,
       })
 
@@ -925,8 +925,8 @@ export class ActionRouter implements TypeGuard {
         resolvedProviders: providers,
         dependencies: modules,
         runtimeContext,
-        bundleName: module.bundleName,
-        bundleTemplateName: module.bundleTemplateName,
+        parentName: module.parentName,
+        templateName: module.templateName,
         inputs: module.inputs,
       })
 

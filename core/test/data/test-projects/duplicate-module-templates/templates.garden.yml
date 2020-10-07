@@ -1,4 +1,4 @@
-kind: BundleTemplate
+kind: ModuleTemplate
 name: combo
 modules:
   - type: test
@@ -6,5 +6,5 @@ modules:
   - type: test
     name: ${component-name}-${inputs.key}-test-b
 ---
-kind: BundleTemplate
+kind: ModuleTemplate
 name: combo

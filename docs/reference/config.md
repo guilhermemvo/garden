@@ -754,7 +754,7 @@ allowPublish: true
 # A list of files to write to the module directory when resolving this module. This is useful to automatically
 # generate (and template) any supporting files needed for the module.
 generateFiles:
-  - # POSIX-style filename to read the source file contents from, relative to the path of the BundleTemplate
+  - # POSIX-style filename to read the source file contents from, relative to the path of the ModuleTemplate
     # configuration file.
     # This file may contain template strings, much like any other field in the configuration.
     sourcePath:
@@ -979,7 +979,7 @@ A list of files to write to the module directory when resolving this module. Thi
 
 [generateFiles](#generatefiles) > sourcePath
 
-POSIX-style filename to read the source file contents from, relative to the path of the BundleTemplate configuration file.
+POSIX-style filename to read the source file contents from, relative to the path of the ModuleTemplate configuration file.
 This file may contain template strings, much like any other field in the configuration.
 
 | Type        | Required |

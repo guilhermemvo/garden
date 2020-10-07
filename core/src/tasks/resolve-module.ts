@@ -63,8 +63,8 @@ export class ResolveModuleConfigTask extends BaseTask {
       moduleName: this.moduleConfig.name,
       dependencies: [],
       runtimeContext: this.runtimeContext,
-      bundleName: this.moduleConfig.bundleName,
-      bundleTemplateName: this.moduleConfig.bundleTemplateName,
+      parentName: this.moduleConfig.parentName,
+      templateName: this.moduleConfig.templateName,
       inputs: this.moduleConfig.inputs,
     })
 
@@ -113,8 +113,8 @@ export class ResolveModuleConfigTask extends BaseTask {
       moduleName: this.moduleConfig.name,
       dependencies,
       runtimeContext: this.runtimeContext,
-      bundleName: this.moduleConfig.bundleName,
-      bundleTemplateName: this.moduleConfig.bundleTemplateName,
+      parentName: this.moduleConfig.parentName,
+      templateName: this.moduleConfig.templateName,
       inputs: this.moduleConfig.inputs,
     })
 
@@ -254,8 +254,8 @@ export class ResolveModuleTask extends BaseTask {
       moduleName: this.moduleConfig.name,
       dependencies: dependencyModules,
       runtimeContext: this.runtimeContext,
-      bundleName: this.moduleConfig.bundleName,
-      bundleTemplateName: this.moduleConfig.bundleTemplateName,
+      parentName: this.moduleConfig.parentName,
+      templateName: this.moduleConfig.templateName,
       inputs: this.moduleConfig.inputs,
     })
 

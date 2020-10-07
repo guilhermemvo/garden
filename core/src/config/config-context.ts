@@ -29,7 +29,7 @@ import { deline, dedent, naturalList } from "../util/string"
 import { getProviderUrl, getModuleTypeUrl } from "../docs/common"
 import { GardenModule } from "../types/module"
 import { isPrimitive } from "util"
-import { bundleKind, templateKind } from "./bundle"
+import { templateKind } from "./module-template"
 
 export type ContextKeySegment = string | number
 export type ContextKey = ContextKeySegment[]
@@ -749,39 +749,51 @@ class ErrorContext extends ConfigContext {
   }
 }
 
-export class BundleContext extends ConfigContext {
-  @schema(joiIdentifier().description(`The name of the ${bundleKind} being resolved.`))
+export class ParentContext extends ConfigContext {
+  @schema(joiIdentifier().description(`The name of the parent module.`))
   public name: string
 
-  @schema(joiIdentifier().description(`The name of the ${templateKind} of the ${bundleKind} being resolved.`))
-  public templateName: string
-
-  constructor(root: ConfigContext, name: string, templateName: string) {
+  constructor(root: ConfigContext, name: string) {
     super(root)
     this.name = name
-    this.templateName = templateName
+  }
+}
+
+export class ModuleTemplateContext extends ConfigContext {
+  @schema(joiIdentifier().description(`The name of the ${templateKind} being resolved.`))
+  public name: string
+
+  constructor(root: ConfigContext, name: string) {
+    super(root)
+    this.name = name
   }
 }
 
 /**
  * This is used to render module names when rendering bundles.
  */
-export class BundleConfigContext extends ProjectConfigContext {
-  @schema(BundleContext.getSchema().description(`Information about the ${bundleKind} being resolved.`))
-  public bundle: BundleContext
+export class ModuleTemplateConfigContext extends ProjectConfigContext {
+  @schema(ParentContext.getSchema().description(`Information about the templated module being resolved.`))
+  public parent: ParentContext
 
   @schema(
-    joiVariables().description(`The inputs provided by the ${bundleKind}.`).meta({
+    ModuleTemplateContext.getSchema().description(`Information about the template used when generating the module.`)
+  )
+  public template: ModuleTemplateContext
+
+  @schema(
+    joiVariables().description(`The inputs provided when resolving the ${templateKind}.`).meta({
       keyPlaceholder: "<input-key>",
     })
   )
   public inputs: DeepPrimitiveMap
 
   constructor(
-    params: { bundleName: string; templateName: string; inputs: DeepPrimitiveMap } & ProjectConfigContextParams
+    params: { parentName: string; templateName: string; inputs: DeepPrimitiveMap } & ProjectConfigContextParams
   ) {
     super(params)
-    this.bundle = new BundleContext(this, params.bundleName, params.templateName)
+    this.parent = new ParentContext(this, params.parentName)
+    this.template = new ModuleTemplateContext(this, params.templateName)
     this.inputs = params.inputs
   }
 }
@@ -807,9 +819,18 @@ export class ModuleConfigContext extends ProviderConfigContext {
   public runtime: RuntimeConfigContext
 
   @schema(
-    BundleContext.getSchema().description(`Information about the bundle that generated the module, if applicable.`)
+    ParentContext.getSchema().description(
+      `Information about the parent module (if the module is a submodule, e.g. generated in a templated module).`
+    )
   )
-  public bundle?: BundleContext
+  public parent?: ParentContext
+
+  @schema(
+    ModuleTemplateContext.getSchema().description(
+      `Information about the ${templateKind} used when generating the module.`
+    )
+  )
+  public template?: ModuleTemplateContext
 
   @schema(
     joiVariables().description(`The inputs provided to the module through a ${templateKind}, if applicable.`).meta({
@@ -824,8 +845,8 @@ export class ModuleConfigContext extends ProviderConfigContext {
     moduleName,
     dependencies,
     runtimeContext,
-    bundleName,
-    bundleTemplateName,
+    parentName,
+    templateName,
     inputs,
   }: {
     garden: Garden
@@ -835,8 +856,8 @@ export class ModuleConfigContext extends ProviderConfigContext {
     // We only supply this when resolving configuration in dependency order.
     // Otherwise we pass `${runtime.*} template strings through for later resolution.
     runtimeContext?: RuntimeContext
-    bundleName: string | undefined
-    bundleTemplateName: string | undefined
+    parentName: string | undefined
+    templateName: string | undefined
     inputs: DeepPrimitiveMap | undefined
   }) {
     super(garden, resolvedProviders)
@@ -851,8 +872,9 @@ export class ModuleConfigContext extends ProviderConfigContext {
     }
 
     this.runtime = new RuntimeConfigContext(this, runtimeContext)
-    if (bundleName && bundleTemplateName) {
-      this.bundle = new BundleContext(this, bundleName, bundleTemplateName)
+    if (parentName && templateName) {
+      this.parent = new ParentContext(this, parentName)
+      this.template = new ModuleTemplateContext(this, templateName)
     }
     this.inputs = inputs || {}
   }
@@ -878,8 +900,8 @@ export class OutputConfigContext extends ModuleConfigContext {
       resolvedProviders,
       dependencies: modules,
       runtimeContext,
-      bundleName: undefined,
-      bundleTemplateName: undefined,
+      parentName: undefined,
+      templateName: undefined,
       inputs: {},
     })
   }

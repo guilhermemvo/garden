@@ -166,8 +166,8 @@ describe("loadConfigResources", () => {
     ])
   })
 
-  it("should load and parse a bundle template", async () => {
-    const projectPath = getDataDir("test-projects", "bundles")
+  it("should load and parse a module template", async () => {
+    const projectPath = getDataDir("test-projects", "module-templates")
     const configPath = resolve(projectPath, "templates.garden.yml")
     const parsed: any = await loadConfigResources(projectPath, configPath)
 
@@ -176,13 +176,13 @@ describe("loadConfigResources", () => {
         apiVersion: "garden.io/v0",
         configPath,
         path: projectPath,
-        kind: "BundleTemplate",
+        kind: "ModuleTemplate",
         name: "combo",
-        inputsSchemaPath: "bundles.json",
+        inputsSchemaPath: "module-templates.json",
         modules: [
           {
             type: "test",
-            name: "${bundle.name}-${inputs.foo}-test-a",
+            name: "${parent.name}-${inputs.foo}-test-a",
             include: [],
             generateFiles: [
               {
@@ -193,10 +193,10 @@ describe("loadConfigResources", () => {
           },
           {
             type: "test",
-            name: "${bundle.name}-${inputs.foo}-test-b",
+            name: "${parent.name}-${inputs.foo}-test-b",
             include: [],
             build: {
-              dependencies: ["${bundle.name}-${inputs.foo}-test-a"],
+              dependencies: ["${parent.name}-${inputs.foo}-test-a"],
             },
             generateFiles: [
               {
@@ -207,75 +207,16 @@ describe("loadConfigResources", () => {
           },
           {
             type: "test",
-            name: "${bundle.name}-${inputs.foo}-test-c",
+            name: "${parent.name}-${inputs.foo}-test-c",
             include: [],
             build: {
-              dependencies: ["${bundle.name}-${inputs.foo}-test-a"],
+              dependencies: ["${parent.name}-${inputs.foo}-test-a"],
             },
             generateFiles: [
               {
                 targetPath: ".garden/subdir/module-c.log",
                 value:
-                  'Hello I am string!\ninput: ${inputs.foo}\nmodule reference: ${modules["${bundle.name}-${inputs.foo}-test-a"].path}\n',
-              },
-            ],
-          },
-        ],
-      },
-    ])
-  })
-
-  it("should load and parse a bundle", async () => {
-    const projectPath = getDataDir("test-projects", "bundles")
-    const configPath = resolve(projectPath, "templates.garden.yml")
-    const parsed = await loadConfigResources(projectPath, configPath)
-
-    expect(parsed).to.eql([
-      {
-        apiVersion: "garden.io/v0",
-        kind: "BundleTemplate",
-        name: "combo",
-        configPath,
-        path: projectPath,
-        inputsSchemaPath: "bundles.json",
-        modules: [
-          {
-            type: "test",
-            name: "${bundle.name}-${inputs.foo}-test-a",
-            include: [],
-            generateFiles: [
-              {
-                targetPath: "module-a.log",
-                value: "hellow",
-              },
-            ],
-          },
-          {
-            type: "test",
-            name: "${bundle.name}-${inputs.foo}-test-b",
-            include: [],
-            build: {
-              dependencies: ["${bundle.name}-${inputs.foo}-test-a"],
-            },
-            generateFiles: [
-              {
-                targetPath: "module-b.log",
-                sourcePath: "source.txt",
-              },
-            ],
-          },
-          {
-            type: "test",
-            name: "${bundle.name}-${inputs.foo}-test-c",
-            include: [],
-            build: {
-              dependencies: ["${bundle.name}-${inputs.foo}-test-a"],
-            },
-            generateFiles: [
-              {
-                targetPath: ".garden/subdir/module-c.log",
-                value:
-                  'Hello I am string!\ninput: ${inputs.foo}\nmodule reference: ${modules["${bundle.name}-${inputs.foo}-test-a"].path}\n',
+                  'Hello I am string!\ninput: ${inputs.foo}\nmodule reference: ${modules["${parent.name}-${inputs.foo}-test-a"].path}\n',
               },
             ],
           },

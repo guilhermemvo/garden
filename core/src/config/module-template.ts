@@ -6,12 +6,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import { joi, apiVersionSchema, joiUserIdentifier, joiIdentifier, CustomObjectSchema, DeepPrimitiveMap } from "./common"
+import { joi, apiVersionSchema, joiUserIdentifier, CustomObjectSchema } from "./common"
 import { baseModuleSpecSchema, BaseModuleSpec, ModuleConfig } from "./module"
 import { dedent, deline } from "../util/string"
 import { GardenResource, prepareModuleResource } from "./base"
 import { DOCS_BASE_URL } from "../constants"
-import { ProjectConfigContext, BundleConfigContext } from "./config-context"
+import { ProjectConfigContext, ModuleTemplateConfigContext } from "./config-context"
 import { resolveTemplateStrings } from "../template-string"
 import { validateWithPath } from "./validation"
 import { Garden } from "../garden"
@@ -19,44 +19,35 @@ import { ConfigurationError } from "../exceptions"
 import { resolve, posix, dirname } from "path"
 import { readFile, ensureDir } from "fs-extra"
 import Bluebird from "bluebird"
+import { TemplatedModuleConfig, templatedModuleSpecSchema } from "../plugins/templated"
+import { omit } from "lodash"
 
 const inputTemplatePattern = "${inputs.*}"
-const bundleNameTemplate = "${bundle.name}"
-const bundleTemplateNameTemplate = "${bundle.templateName}"
+const parentNameTemplate = "${parent.name}"
+const moduleTemplateNameTemplate = "${template.name}"
 const moduleTemplateReferenceUrl = DOCS_BASE_URL + "/reference/template-strings#module-configuration-context"
 
-export const templateKind = "BundleTemplate"
-export const bundleKind = "Bundle"
+export const templateKind = "ModuleTemplate"
 
 export type TemplateKind = typeof templateKind
-export type BundleKind = typeof bundleKind
 
-interface BundleModuleSpec extends Partial<BaseModuleSpec> {
+interface TemplatedModuleSpec extends Partial<BaseModuleSpec> {
   type: string
 }
 
-export interface BundleTemplateResource extends GardenResource {
+export interface ModuleTemplateResource extends GardenResource {
   inputsSchemaPath?: string
-  modules?: BundleModuleSpec[]
+  modules?: TemplatedModuleSpec[]
 }
 
-export interface BundleTemplateConfig extends BundleTemplateResource {
+export interface ModuleTemplateConfig extends ModuleTemplateResource {
   inputsSchema: CustomObjectSchema
 }
 
-export interface BundleResource extends GardenResource {
-  template: string
-  inputs?: DeepPrimitiveMap
-}
-
-export interface BundleConfig extends BundleResource {
-  modules: ModuleConfig[]
-}
-
-export async function resolveBundleTemplate(
+export async function resolveModuleTemplate(
   garden: Garden,
-  resource: BundleTemplateResource
-): Promise<BundleTemplateConfig> {
+  resource: ModuleTemplateResource
+): Promise<ModuleTemplateConfig> {
   // Resolve template strings, minus module templates and files
   const partial = {
     ...resource,
@@ -69,7 +60,7 @@ export async function resolveBundleTemplate(
   const validated = validateWithPath({
     config: resolved,
     path: resource.configPath || resource.path,
-    schema: bundleTemplateSchema(),
+    schema: moduleTemplateSchema(),
     projectRoot: garden.projectRoot,
     configType: templateKind,
   })
@@ -112,30 +103,38 @@ export async function resolveBundleTemplate(
   }
 }
 
-export async function resolveBundle(
+export async function resolveTemplatedModule(
   garden: Garden,
-  config: BundleResource,
-  templates: { [name: string]: BundleTemplateConfig }
-): Promise<BundleConfig> {
+  config: TemplatedModuleConfig,
+  templates: { [name: string]: ModuleTemplateConfig }
+) {
   // Resolve template strings for fields
   const resolved = resolveTemplateStrings(config, new ProjectConfigContext(garden))
+  const configType = "templated module " + resolved.name
+
+  let resolvedSpec = omit(resolved.spec, "build")
+
+  // Return immediately if module is disabled
+  if (resolved.disabled) {
+    return { resolvedSpec, modules: [] }
+  }
 
   // Validate
-  let bundle = validateWithPath({
-    config: resolved,
-    configType: bundleKind,
+  resolvedSpec = validateWithPath({
+    config: omit(resolved.spec, "build"),
+    configType,
     path: resolved.configPath || resolved.path,
-    schema: bundleSchema(),
+    schema: templatedModuleSpecSchema(),
     projectRoot: garden.projectRoot,
   })
 
-  const template = templates[bundle.template]
+  const template = templates[resolvedSpec.template]
 
   if (!template) {
     const availableTemplates = Object.keys(templates)
     throw new ConfigurationError(
       deline`
-      ${bundleKind} ${bundle.name} references template ${bundle.template},
+      Templated module ${resolved.name} references template ${resolvedSpec.template},
       which cannot be found. Available templates: ${availableTemplates.join(", ")}
       `,
       { availableTemplates }
@@ -143,41 +142,38 @@ export async function resolveBundle(
   }
 
   // Validate template inputs
-  bundle = validateWithPath({
-    config: resolved,
-    configType: bundleKind,
+  resolvedSpec = validateWithPath({
+    config: resolvedSpec,
+    configType,
     path: resolved.configPath || resolved.path,
-    schema: bundleSchema().keys({ inputs: template.inputsSchema }),
+    schema: templatedModuleSpecSchema().keys({ inputs: template.inputsSchema }),
     projectRoot: garden.projectRoot,
   })
 
-  const inputs = bundle.inputs || {}
+  const inputs = resolvedSpec.inputs || {}
 
-  // Resolve files and write
-  // TODO: consider shifting this to ResolveModuleTask?
-  const context = new BundleConfigContext({
+  // Prepare modules and resolve templated names
+  const context = new ModuleTemplateConfigContext({
     ...garden,
-    bundleName: bundle.name,
+    parentName: resolved.name,
     templateName: template.name,
     inputs,
   })
 
-  // Prepare modules and resolve templated names
   const modules = await Bluebird.map(template.modules || [], async (m) => {
-    // Run a partial template resolution with the bundle/template info and inputs
+    // Run a partial template resolution with the parent+template info and inputs
     const spec = resolveTemplateStrings(m, context, { allowPartial: true })
 
     let moduleConfig: ModuleConfig
 
     try {
-      moduleConfig = prepareModuleResource(spec, bundle.configPath || bundle.path, garden.projectRoot)
+      moduleConfig = prepareModuleResource(spec, resolved.configPath || resolved.path, garden.projectRoot)
     } catch (error) {
       throw new ConfigurationError(
-        deline`${templateKind} ${template.name} returned an invalid module (named ${spec.name})
-        for ${bundleKind} ${bundle.name}: ${error.message}`,
+        `${templateKind} ${template.name} returned an invalid module (named ${spec.name}) for templated module ${resolved.name}: ${error.message}`,
         {
           moduleSpec: spec,
-          bundle,
+          parent: resolvedSpec,
           error,
         }
       )
@@ -191,22 +187,22 @@ export async function resolveBundle(
 
     // If a path is set, resolve the path and ensure that directory exists
     if (spec.path) {
-      moduleConfig.path = resolve(bundle.path, ...spec.path.split(posix.sep))
+      moduleConfig.path = resolve(resolved.path, ...spec.path.split(posix.sep))
       await ensureDir(moduleConfig.path)
     }
 
     // Attach metadata
-    moduleConfig.bundleName = bundle.name
-    moduleConfig.bundleTemplateName = template.name
+    moduleConfig.parentName = resolved.name
+    moduleConfig.templateName = template.name
     moduleConfig.inputs = inputs
 
     return moduleConfig
   })
 
-  return { ...bundle, modules }
+  return { resolvedSpec, modules }
 }
 
-export const bundleTemplateSchema = () =>
+export const moduleTemplateSchema = () =>
   joi.object().keys({
     apiVersion: apiVersionSchema(),
     kind: joi.string().allow(templateKind).only().default(templateKind),
@@ -221,34 +217,19 @@ export const bundleTemplateSchema = () =>
       ),
     modules: joi
       .array()
-      .items(moduleTemplateSchema())
+      .items(moduleSchema())
       .description(
         dedent`
         A list of modules this template will output. The schema for each is the same as when you create modules normally in configuration files, with the addition of a \`path\` field, which allows you to specify a sub-directory to set as the module root.
 
-        In addition to any template strings you can normally use for modules (see [the reference](${moduleTemplateReferenceUrl})), you can reference the inputs described by the inputs schema for the template, using ${inputTemplatePattern} template strings, as well as ${bundleNameTemplate} and ${bundleTemplateNameTemplate}, to reference the name of the ${bundleKind} using the template, and the name of the template itself, respectively. This also applies to file contents specified under the \`files\` key.
+        In addition to any template strings you can normally use for modules (see [the reference](${moduleTemplateReferenceUrl})), you can reference the inputs described by the inputs schema for the template, using ${inputTemplatePattern} template strings, as well as ${parentNameTemplate} and ${moduleTemplateNameTemplate}, to reference the name of the module using the template, and the name of the template itself, respectively. This also applies to file contents specified under the \`files\` key.
 
-        **Important: Make sure you use templates for any identifiers that must be unique, such as module names, service names and task names. Otherwise you'll inevitably run into configuration errors. The module names can reference the ${inputTemplatePattern}, ${bundleNameTemplate} and ${bundleTemplateNameTemplate} keys. Other identifiers can also reference those, plus any other keys available for module templates (see [the module context reference](${moduleTemplateReferenceUrl})).**
+        **Important: Make sure you use templates for any identifiers that must be unique, such as module names, service names and task names. Otherwise you'll inevitably run into configuration errors. The module names can reference the ${inputTemplatePattern}, ${parentNameTemplate} and ${moduleTemplateNameTemplate} keys. Other identifiers can also reference those, plus any other keys available for module templates (see [the module context reference](${moduleTemplateReferenceUrl})).**
         `
       ),
   })
 
-export const bundleSchema = () =>
-  joi.object().keys({
-    apiVersion: apiVersionSchema(),
-    kind: joi.string().allow(bundleKind).only().default(bundleKind),
-    name: joiUserIdentifier().required().description("The name of the bundle."),
-    path: joi.string().description(`The directory path of the ${bundleKind}.`).meta({ internal: true }),
-    configPath: joi.string().description(`The path of the ${bundleKind} config file.`).meta({ internal: true }),
-    template: joiIdentifier().required().description(`The ${templateKind} to use to generate this ${bundleKind}`),
-    inputs: joi.object().description(
-      dedent`
-        A map of inputs to pass to the ${templateKind}. These must match the inputs schema of the ${templateKind}.
-      `
-    ),
-  })
-
-const moduleTemplateSchema = () =>
+const moduleSchema = () =>
   baseModuleSpecSchema().keys({
     path: joi
       .posixPath()

@@ -105,13 +105,12 @@ allowPublish: true
 # A list of files to write to the module directory when resolving this module. This is useful to automatically
 # generate (and template) any supporting files needed for the module.
 generateFiles:
-  - # POSIX-style filename to read the source file contents from, relative to the path of the BundleTemplate
-    # configuration file.
+  - # POSIX-style filename to read the source file contents from, relative to the path of the module (or the
+    # ModuleTemplate configuration file if one is being applied).
     # This file may contain template strings, much like any other field in the configuration.
     sourcePath:
 
-    # POSIX-style filename to write the resolved file contents to, relative to the path of the Bundle that references
-    # the template.
+    # POSIX-style filename to write the resolved file contents to, relative to the path of the module.
     #
     # Note that any existing file with the same name will be overwritten. If the path contains one or more
     # directories, they will be automatically created if missing.
@@ -370,7 +369,7 @@ A list of files to write to the module directory when resolving this module. Thi
 
 [generateFiles](#generatefiles) > sourcePath
 
-POSIX-style filename to read the source file contents from, relative to the path of the BundleTemplate configuration file.
+POSIX-style filename to read the source file contents from, relative to the path of the module (or the ModuleTemplate configuration file if one is being applied).
 This file may contain template strings, much like any other field in the configuration.
 
 | Type        | Required |
@@ -381,7 +380,7 @@ This file may contain template strings, much like any other field in the configu
 
 [generateFiles](#generatefiles) > targetPath
 
-POSIX-style filename to write the resolved file contents to, relative to the path of the Bundle that references the template.
+POSIX-style filename to write the resolved file contents to, relative to the path of the module.
 
 Note that any existing file with the same name will be overwritten. If the path contains one or more directories, they will be automatically created if missing.
 

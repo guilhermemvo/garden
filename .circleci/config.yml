@@ -697,11 +697,6 @@ workflows:
           requires: [build]
       - e2e-project:
           <<: *only-internal-prs
-          name: e2e-bundle-k8s-container
-          project: bundle-k8s-container
-          requires: [build]
-      - e2e-project:
-          <<: *only-internal-prs
           name: e2e-deployment-strategies
           project: deployment-strategies
           requires: [build]
@@ -729,6 +724,11 @@ workflows:
           <<: *only-internal-prs
           name: e2e-tasks
           project: tasks
+          requires: [build]
+      - e2e-project:
+          <<: *only-internal-prs
+          name: e2e-templated-k8s-container
+          project: templated-k8s-container
           requires: [build]
       - e2e-project:
           <<: *only-internal-prs

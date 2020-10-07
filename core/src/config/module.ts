@@ -21,7 +21,7 @@ import {
 import { TestConfig, testConfigSchema } from "./test"
 import { TaskConfig, taskConfigSchema } from "./task"
 import { dedent, stableStringify } from "../util/string"
-import { templateKind, bundleKind } from "./bundle"
+import { templateKind } from "./module-template"
 
 export interface BuildCopySpec {
   source: string
@@ -108,7 +108,7 @@ const generatedFileSchema = () =>
         .relativeOnly()
         .description(
           dedent`
-          POSIX-style filename to read the source file contents from, relative to the path of the ${templateKind} configuration file.
+          POSIX-style filename to read the source file contents from, relative to the path of the module (or the ${templateKind} configuration file if one is being applied).
           This file may contain template strings, much like any other field in the configuration.
           `
         ),
@@ -119,7 +119,7 @@ const generatedFileSchema = () =>
         .required()
         .description(
           dedent`
-          POSIX-style filename to write the resolved file contents to, relative to the path of the ${bundleKind} that references the template.
+          POSIX-style filename to write the resolved file contents to, relative to the path of the module.
 
           Note that any existing file with the same name will be overwritten. If the path contains one or more directories, they will be automatically created if missing.
           `
@@ -140,75 +140,78 @@ export const baseBuildSpecSchema = () =>
     .description("Specify how to build the module. Note that plugins may define additional keys on this object.")
 
 // These fields are validated immediately when loading the config file
+const coreModuleSpecKeys = () => ({
+  apiVersion: apiVersionSchema(),
+  kind: joi.string().default("Module").valid("Module"),
+  type: joiIdentifier().required().description("The type of this module.").example("container"),
+  name: joiUserIdentifier().required().description("The name of this module.").example("my-sweet-module"),
+})
+
 export const coreModuleSpecSchema = () =>
   joi
     .object()
-    .keys({
-      apiVersion: apiVersionSchema(),
-      kind: joi.string().default("Module").valid("Module"),
-      type: joiIdentifier().required().description("The type of this module.").example("container"),
-      name: joiUserIdentifier().required().description("The name of this module.").example("my-sweet-module"),
-      build: baseBuildSpecSchema().unknown(true),
-    })
+    .keys(coreModuleSpecKeys())
     .unknown(true)
     .description("Configure a module whose sources are located in this directory.")
     .meta({ extendable: true })
 
 // These fields may be resolved later in the process, and allow for usage of template strings
-export const baseModuleSpecSchema = () =>
-  coreModuleSpecSchema().keys({
-    description: joi.string().description("A description of the module."),
-    disabled: joi
-      .boolean()
-      .default(false)
-      .description(
-        dedent`
-        Set this to \`true\` to disable the module. You can use this with conditional template strings to disable modules based on, for example, the current environment or other variables (e.g. \`disabled: \${environment.name == "prod"}\`). This can be handy when you only need certain modules for specific environments, e.g. only for development.
-
-        Disabling a module means that any services, tasks and tests contained in it will not be deployed or run. It also means that the module is not built _unless_ it is declared as a build dependency by another enabled module (in which case building this module is necessary for the dependant to be built).
-
-        If you disable the module, and its services, tasks or tests are referenced as _runtime_ dependencies, Garden will automatically ignore those dependency declarations. Note however that template strings referencing the module's service or task outputs (i.e. runtime outputs) will fail to resolve when the module is disabled, so you need to make sure to provide alternate values for those if you're using them, using conditional expressions.
-      `
-      ),
-    include: joi
-      .array()
-      .items(joi.posixPath().allowGlobs().subPathOnly())
-      .description(
-        dedent`
-        Specify a list of POSIX-style paths or globs that should be regarded as the source files for this module. Files that do *not* match these paths or globs are excluded when computing the version of the module, when responding to filesystem watch events, and when staging builds.
-
-        Note that you can also _exclude_ files using the \`exclude\` field or by placing \`.gardenignore\` files in your source tree, which use the same format as \`.gitignore\` files. See the [Configuration Files guide](${includeGuideLink}) for details.
-
-        Also note that specifying an empty list here means _no sources_ should be included.`
-      )
-      .example(["Dockerfile", "my-app.js"]),
-    exclude: joi
-      .array()
-      .items(joi.posixPath().allowGlobs().subPathOnly())
-      .description(
-        dedent`
-        Specify a list of POSIX-style paths or glob patterns that should be excluded from the module. Files that match these paths or globs are excluded when computing the version of the module, when responding to filesystem watch events, and when staging builds.
-
-        Note that you can also explicitly _include_ files using the \`include\` field. If you also specify the \`include\` field, the files/patterns specified here are filtered from the files matched by \`include\`. See the [Configuration Files guide](${includeGuideLink}) for details.
-
-        Unlike the \`modules.exclude\` field in the project config, the filters here have _no effect_ on which files and directories are watched for changes. Use the project \`modules.exclude\` field to affect those, if you have large directories that should not be watched for changes.
-        `
-      )
-      .example(["tmp/**/*", "*.log"]),
-    repositoryUrl: joiRepositoryUrl().description(
+export const baseModuleSpecKeys = () => ({
+  build: baseBuildSpecSchema().unknown(true),
+  description: joi.string().description("A description of the module."),
+  disabled: joi
+    .boolean()
+    .default(false)
+    .description(
       dedent`
-      ${(<any>joiRepositoryUrl().describe().flags).description}
+      Set this to \`true\` to disable the module. You can use this with conditional template strings to disable modules based on, for example, the current environment or other variables (e.g. \`disabled: \${environment.name == "prod"}\`). This can be handy when you only need certain modules for specific environments, e.g. only for development.
 
-      Garden will import the repository source code into this module, but read the module's config from the local garden.yml file.`
+      Disabling a module means that any services, tasks and tests contained in it will not be deployed or run. It also means that the module is not built _unless_ it is declared as a build dependency by another enabled module (in which case building this module is necessary for the dependant to be built).
+
+      If you disable the module, and its services, tasks or tests are referenced as _runtime_ dependencies, Garden will automatically ignore those dependency declarations. Note however that template strings referencing the module's service or task outputs (i.e. runtime outputs) will fail to resolve when the module is disabled, so you need to make sure to provide alternate values for those if you're using them, using conditional expressions.
+    `
     ),
-    allowPublish: joi
-      .boolean()
-      .default(true)
-      .description("When false, disables pushing this module to remote registries."),
-    generateFiles: joi.array().items(generatedFileSchema()).description(dedent`
-      A list of files to write to the module directory when resolving this module. This is useful to automatically generate (and template) any supporting files needed for the module.
-    `),
-  })
+  include: joi
+    .array()
+    .items(joi.posixPath().allowGlobs().subPathOnly())
+    .description(
+      dedent`
+      Specify a list of POSIX-style paths or globs that should be regarded as the source files for this module. Files that do *not* match these paths or globs are excluded when computing the version of the module, when responding to filesystem watch events, and when staging builds.
+
+      Note that you can also _exclude_ files using the \`exclude\` field or by placing \`.gardenignore\` files in your source tree, which use the same format as \`.gitignore\` files. See the [Configuration Files guide](${includeGuideLink}) for details.
+
+      Also note that specifying an empty list here means _no sources_ should be included.`
+    )
+    .example(["Dockerfile", "my-app.js"]),
+  exclude: joi
+    .array()
+    .items(joi.posixPath().allowGlobs().subPathOnly())
+    .description(
+      dedent`
+      Specify a list of POSIX-style paths or glob patterns that should be excluded from the module. Files that match these paths or globs are excluded when computing the version of the module, when responding to filesystem watch events, and when staging builds.
+
+      Note that you can also explicitly _include_ files using the \`include\` field. If you also specify the \`include\` field, the files/patterns specified here are filtered from the files matched by \`include\`. See the [Configuration Files guide](${includeGuideLink}) for details.
+
+      Unlike the \`modules.exclude\` field in the project config, the filters here have _no effect_ on which files and directories are watched for changes. Use the project \`modules.exclude\` field to affect those, if you have large directories that should not be watched for changes.
+      `
+    )
+    .example(["tmp/**/*", "*.log"]),
+  repositoryUrl: joiRepositoryUrl().description(
+    dedent`
+    ${(<any>joiRepositoryUrl().describe().flags).description}
+
+    Garden will import the repository source code into this module, but read the module's config from the local garden.yml file.`
+  ),
+  allowPublish: joi
+    .boolean()
+    .default(true)
+    .description("When false, disables pushing this module to remote registries."),
+  generateFiles: joi.array().items(generatedFileSchema()).description(dedent`
+    A list of files to write to the module directory when resolving this module. This is useful to automatically generate (and template) any supporting files needed for the module.
+  `),
+})
+
+export const baseModuleSpecSchema = () => coreModuleSpecSchema().keys(baseModuleSpecKeys())
 
 export interface ModuleConfig<M extends {} = any, S extends {} = any, T extends {} = any, W extends {} = any>
   extends BaseModuleSpec {
@@ -219,9 +222,9 @@ export interface ModuleConfig<M extends {} = any, S extends {} = any, T extends 
   testConfigs: TestConfig<T>[]
   taskConfigs: TaskConfig<W>[]
 
-  // set by BundleTemplates for templating
-  bundleName?: string
-  bundleTemplateName?: string
+  // set by ModuleTemplates for templated modules
+  parentName?: string
+  templateName?: string
   inputs?: DeepPrimitiveMap
 
   // Plugins can add custom fields that are kept here
@@ -250,12 +253,14 @@ export const moduleConfigSchema = () =>
             sourcePath: joi.string(),
           })
         )
-        .description("Files to write upon resolution, defined by a BundleTemplate.")
+        .description("Files to write upon resolution, defined by a ModuleTemplate.")
         .meta({ internal: true }),
-      bundleName: joiIdentifier().description("The bundle that generated the module, if applicable."),
-      bundleTemplateName: joiIdentifier().description("The bundle template that generated the module, if applicable."),
+      parentName: joiIdentifier().description(
+        "The name of the parent module (e.g. a templated module that generated this module), if applicable."
+      ),
+      templateName: joiIdentifier().description("The module template that generated the module, if applicable."),
       inputs: joiVariables().description(
-        "Inputs provided when rendering the module from a bundle template, if applicable."
+        "Inputs provided when rendering the module from a module template, if applicable."
       ),
       _config: joi.object().meta({ internal: true }),
     })

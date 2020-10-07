@@ -1,5 +1,5 @@
 kind: Project
-name: bundles
+name: module-templates
 environments:
   - name: local
 providers:

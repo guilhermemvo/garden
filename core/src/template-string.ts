@@ -178,7 +178,7 @@ export function getModuleTemplateReferences<T extends object>(obj: T, context: M
   const refs = collectTemplateReferences(obj)
   const moduleNames = refs.filter((ref) => ref[0] === "modules" && ref.length > 1)
   // Resolve template strings in name refs. This would ideally be done ahead of this function, but is currently
-  // necessary to resolve templated module name references in BundleTemplates.
+  // necessary to resolve templated module name references in ModuleTemplates.
   return resolveTemplateStrings(moduleNames, context)
 }
 

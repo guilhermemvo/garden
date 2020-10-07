@@ -37,9 +37,9 @@ This guide shows you how Garden can run your tests for you.
 
 This guide shows you how Garden can run tasks for you, for example database migrations.
 
-## [Bundles (Module Templates)](./bundles.md)
+## [Module Templates](./module-templates.md)
 
-This guide shows you how to create custom templates and define _bundles_ of templated modules.
+This guide shows you how to create custom templates and define templated modules.
 
 ## [Workflows](./workflows.md)
 

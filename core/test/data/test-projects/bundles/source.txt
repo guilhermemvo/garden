@@ -1,3 +1,0 @@
-Hello I am file!
-input: ${inputs.foo}
-module reference: ${modules["${bundle.name}-${inputs.foo}-test-a"].path}

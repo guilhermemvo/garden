@@ -21,7 +21,7 @@ import { renderProviderReference } from "./provider"
 import { defaultNamespace } from "../config/project"
 import { GardenPlugin } from "../types/plugin/plugin"
 import { workflowConfigSchema } from "../config/workflow"
-import { bundleSchema, bundleTemplateSchema } from "../config/bundle"
+import { moduleTemplateSchema } from "../config/module-template"
 
 export async function generateDocs(targetDir: string, plugins: GardenPlugin[]) {
   // tslint:disable: no-console
@@ -119,6 +119,5 @@ export async function writeConfigReferenceDocs(docsRoot: string, plugins: Garden
 
   await renderConfigTemplate("project", renderProjectConfigReference())
   await renderConfigTemplate("workflow", renderConfigReference(workflowConfigSchema()))
-  await renderConfigTemplate("bundle", renderConfigReference(bundleSchema()))
-  await renderConfigTemplate("bundle-template", renderConfigReference(bundleTemplateSchema()))
+  await renderConfigTemplate("module-template", renderConfigReference(moduleTemplateSchema()))
 }

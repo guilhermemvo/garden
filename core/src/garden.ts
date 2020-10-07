@@ -83,13 +83,12 @@ import { WorkflowConfig, WorkflowConfigMap, resolveWorkflowConfig } from "./conf
 import { enterpriseInit } from "./enterprise/init"
 import { PluginTool, PluginTools } from "./util/ext-tools"
 import {
-  BundleTemplateResource,
-  BundleResource,
-  resolveBundleTemplate,
-  resolveBundle,
-  bundleKind,
+  ModuleTemplateResource,
+  resolveModuleTemplate,
+  resolveTemplatedModule,
   templateKind,
-} from "./config/bundle"
+} from "./config/module-template"
+import { TemplatedModuleConfig } from "./plugins/templated"
 
 export interface ActionHandlerMap<T extends keyof PluginActionHandlers> {
   [actionName: string]: PluginActionHandlers[T]
@@ -839,8 +838,8 @@ export class Garden {
         resolvedProviders: keyBy(providers, "name"),
         dependencies: resolvedModules,
         runtimeContext,
-        bundleName: undefined,
-        bundleTemplateName: undefined,
+        parentName: undefined,
+        templateName: undefined,
         inputs: {},
       })
 
@@ -1035,15 +1034,14 @@ export class Garden {
         throwOnMissingSecretKeys(configs, this.secrets, kind)
       }
 
-      const rawModuleConfigs = [...this.pluginModuleConfigs, ...((groupedResources.Module as ModuleConfig[]) || [])]
+      let rawModuleConfigs = [...this.pluginModuleConfigs, ...((groupedResources.Module as ModuleConfig[]) || [])]
       const rawWorkflowConfigs = (groupedResources.Workflow as WorkflowConfig[]) || []
-      const rawBundleTemplateResources = (groupedResources[templateKind] as BundleTemplateResource[]) || []
-      const rawBundleResources = (groupedResources[bundleKind] as BundleResource[]) || []
+      const rawModuleTemplateResources = (groupedResources[templateKind] as ModuleTemplateResource[]) || []
 
-      // Resolve bundle templates
-      const bundleTemplates = await Bluebird.map(rawBundleTemplateResources, (r) => resolveBundleTemplate(this, r))
+      // Resolve module templates
+      const moduleTemplates = await Bluebird.map(rawModuleTemplateResources, (r) => resolveModuleTemplate(this, r))
       // -> detect duplicate templates
-      const duplicateTemplates = duplicatesByKey(bundleTemplates, "name")
+      const duplicateTemplates = duplicatesByKey(moduleTemplates, "name")
 
       if (duplicateTemplates.length > 0) {
         const messages = duplicateTemplates
@@ -1054,14 +1052,17 @@ export class Garden {
               )}`
           )
           .join("\n")
-        throw new ConfigurationError(`Found duplicate names of ${bundleKind}s:\n${messages}`, { duplicateTemplates })
+        throw new ConfigurationError(`Found duplicate names of ${templateKind}s:\n${messages}`, { duplicateTemplates })
       }
 
-      // Resolve bundles
-      const templatesByKey = keyBy(bundleTemplates, "name")
-      const resolvedBundled = await Bluebird.map(rawBundleResources, (r) => resolveBundle(this, r, templatesByKey))
-      rawModuleConfigs.push(...resolvedBundled.flatMap((c) => c.modules))
+      // Resolve templated modules
+      const templatesByKey = keyBy(moduleTemplates, "name")
+      const rawTemplated = rawModuleConfigs.filter((m) => m.type === "templated") as TemplatedModuleConfig[]
+      const resolvedTemplated = await Bluebird.map(rawTemplated, (r) => resolveTemplatedModule(this, r, templatesByKey))
 
+      rawModuleConfigs.push(...resolvedTemplated.flatMap((c) => c.modules))
+
+      // Add all the module and workflow configs
       await Bluebird.all([
         Bluebird.map(rawModuleConfigs, async (config) => this.addModuleConfig(config)),
         Bluebird.map(rawWorkflowConfigs, async (config) => this.addWorkflow(config)),
