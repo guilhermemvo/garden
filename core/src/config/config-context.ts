@@ -185,20 +185,18 @@ export abstract class ConfigContext {
         }
       }
 
-      const error = new TemplateStringMissingKeyError(message, {
-        nodePath,
-        fullPath,
-        opts,
-      })
-
       if (opts.allowPartial) {
         // If we're allowing partial strings, we throw the error immediately to end the resolution flow. The error
         // is caught in the surrounding template resolution code.
-        throw error
+        throw new TemplateStringMissingKeyError(message, {
+          nodePath,
+          fullPath,
+          opts,
+        })
       } else {
         // Otherwise we return the undefined value, so that any logical expressions can be evaluated appropriately.
         // The template resolver will throw the error later if appropriate.
-        return { resolved: value, message }
+        return { resolved: undefined, message }
       }
     }
 
